@@ -1,0 +1,163 @@
+{
+  "version": "3",
+  "templates": [
+    {
+      "type": 2,
+      "title": "Plone (ZEO + NFS)",
+      "description": "Plone 6 site with ZEO storage, scalable backend, and Volto frontend. Persistent data on NFS. Per-instance directories must be pre-created by the matching cluster_playbook playbook.",
+      "note": "Single ZEO replica (cannot scale). Backend and frontend can scale. Requires /srv-nfs/plone/<site-id>/{filestorage,blobstorage} created beforehand by cluster_playbook.",
+      "categories": ["cms", "plone"],
+      "platform": "linux",
+      "logo": "https://raw.githubusercontent.com/simplesconsultoria/portainer-stacks/main/plone-zeo-nfs/logo.png",
+      "repository": {
+        "url": "https://github.com/simplesconsultoria/portainer-stacks",
+        "stackfile": "plone-zeo-nfs/docker-compose.yml"
+      },
+      "env": [
+        {
+          "name": "STACK_NAME",
+          "label": "Stack name (must match the field above)",
+          "description": "Type the same value you used in the stack 'Name' field at the top of this page. Used for internal Swarm DNS (${STACK_NAME}_db, ${STACK_NAME}_backend)."
+        },
+        {
+          "name": "STACK_PREFIX",
+          "label": "Traefik resource prefix",
+          "description": "Short, unique prefix used in Traefik service/middleware/router names (e.g. 'acme-prod')."
+        },
+        {
+          "name": "STACK_ENV",
+          "label": "Target environment",
+          "description": "Swarm placement constraint: nodes must have node.labels.env == this value.",
+          "select": [
+            {"text": "staging", "value": "staging"},
+            {"text": "production", "value": "production"}
+          ]
+        },
+        {
+          "name": "SITE_ID",
+          "label": "Plone site id",
+          "description": "Plone site path segment (e.g. 'Plone'). Used by Volto's API path and the backend VHM rewrites."
+        },
+        {
+          "name": "DEPLOY_HOSTNAME",
+          "label": "Public hostname",
+          "description": "Hostname routed by Traefik (e.g. site.example.com). Must already resolve to the cluster."
+        },
+        {
+          "name": "IMAGE_FRONTEND",
+          "label": "Frontend image",
+          "description": "Volto image (e.g. plone/plone-frontend or a per-tenant build)."
+        },
+        {
+          "name": "IMAGE_FRONTEND_TAG",
+          "label": "Frontend image tag",
+          "description": "Pinned tag. Avoid 'latest' in production.",
+          "default": "latest"
+        },
+        {
+          "name": "IMAGE_BACKEND",
+          "label": "Backend image",
+          "description": "Plone backend image (e.g. plone/plone-backend)."
+        },
+        {
+          "name": "IMAGE_BACKEND_TAG",
+          "label": "Backend image tag",
+          "description": "Pinned tag. Avoid 'latest' in production.",
+          "default": "latest"
+        },
+        {
+          "name": "IMAGE_DB",
+          "label": "ZEO image",
+          "description": "ZEO server image. Override only for a custom-built ZEO.",
+          "default": "plone/plone-zeo"
+        },
+        {
+          "name": "IMAGE_DB_TAG",
+          "label": "ZEO image tag",
+          "description": "Bump together with backend ZODB compatibility.",
+          "default": "6.0.0"
+        },
+        {
+          "name": "STACK_FRONTEND_REPLICAS",
+          "label": "Frontend replicas",
+          "description": "Number of Volto replicas.",
+          "default": "1"
+        },
+        {
+          "name": "STACK_FRONTEND_TYPE",
+          "label": "Frontend node type",
+          "description": "Swarm placement constraint: node.labels.type for the frontend.",
+          "default": "app"
+        },
+        {
+          "name": "STACK_BACKEND_REPLICAS",
+          "label": "Backend replicas",
+          "description": "Number of Plone backend replicas.",
+          "default": "1"
+        },
+        {
+          "name": "STACK_BACKEND_TYPE",
+          "label": "Backend node type",
+          "description": "Swarm placement constraint: node.labels.type for the backend.",
+          "default": "app"
+        },
+        {
+          "name": "STACK_DB_TYPE",
+          "label": "ZEO node type",
+          "description": "Swarm placement constraint: node.labels.type for ZEO. Pin to a node with reliable NFS access.",
+          "default": "data"
+        },
+        {
+          "name": "ZEO_PORT",
+          "label": "ZEO port",
+          "description": "Port the ZEO server listens on.",
+          "default": "8100"
+        },
+        {
+          "name": "ZEO_STORAGE",
+          "label": "ZEO storage name",
+          "description": "ZEO storage identifier. Rarely changed.",
+          "default": "1"
+        },
+        {
+          "name": "NFS_HOST",
+          "label": "NFS server",
+          "description": "NFS server address (IP or DNS name)."
+        },
+        {
+          "name": "NFS_BASE_DIR",
+          "label": "NFS base directory",
+          "description": "Path on the NFS export for this site. Mounted at /data and /data/blobstorage. Must be pre-created by cluster_playbook."
+        },
+        {
+          "name": "CERTRESOLVER",
+          "label": "Traefik cert resolver",
+          "description": "Name of the Traefik certificate resolver to use.",
+          "default": "le-cloudflare"
+        },
+        {
+          "name": "FRONTEND_MIDDLEWARES",
+          "label": "Frontend middlewares",
+          "description": "Comma-separated Traefik middlewares for the frontend route. Add 'mw-<STACK_PREFIX>-auth' to gate the public site behind basic auth.",
+          "default": "gzip"
+        },
+        {
+          "name": "BASIC_AUTH_USER",
+          "label": "Basic auth user",
+          "description": "Username for the stack-wide auth middleware (always applied to /ClassicUI; opt-in for the frontend via FRONTEND_MIDDLEWARES)."
+        },
+        {
+          "name": "BASIC_AUTH_PASSWORD_HASH",
+          "label": "Basic auth password hash",
+          "description": "htpasswd-style hash. Never the plaintext password."
+        },
+        {
+          "name": "NETWORK_MTU",
+          "label": "Internal network MTU",
+          "description": "MTU for the internal overlay network. Lower it if running across VXLAN-encapsulated networks.",
+          "default": "1450"
+        }
+      ]
+    }
+  ]
+}

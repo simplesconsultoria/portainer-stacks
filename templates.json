@@ -36,7 +36,8 @@
         {
           "name": "SITE_ID",
           "label": "Plone site id",
-          "description": "Plone site path segment (e.g. 'Plone'). Used by Volto's API path and the backend VHM rewrites."
+          "description": "Plone site path segment (e.g. 'Plone'). Used by Volto's API path and the backend VHM rewrites.",
+          "default": "Plone"
         },
         {
           "name": "DEPLOY_HOSTNAME",
@@ -87,6 +88,10 @@
           "name": "STACK_FRONTEND_TYPE",
           "label": "Frontend node type",
           "description": "Swarm placement constraint: node.labels.type for the frontend.",
+          "select": [
+            {"text": "App", "value": "app"},
+            {"text": "Data", "value": "data"}
+          ],
           "default": "app"
         },
         {
@@ -99,12 +104,20 @@
           "name": "STACK_BACKEND_TYPE",
           "label": "Backend node type",
           "description": "Swarm placement constraint: node.labels.type for the backend.",
+          "select": [
+            {"text": "App", "value": "app"},
+            {"text": "Data", "value": "data"}
+          ],
           "default": "app"
         },
         {
           "name": "STACK_DB_TYPE",
           "label": "ZEO node type",
           "description": "Swarm placement constraint: node.labels.type for ZEO. Pin to a node with reliable NFS access.",
+          "select": [
+            {"text": "App", "value": "app"},
+            {"text": "Data", "value": "data"}
+          ],
           "default": "data"
         },
         {
@@ -133,6 +146,10 @@
           "name": "CERTRESOLVER",
           "label": "Traefik cert resolver",
           "description": "Name of the Traefik certificate resolver to use.",
+          "select": [
+            {"text": "Let's Encrypt TLS", "value": "le-tls"},
+            {"text": "Cloudflare", "value": "le-cloudflare"}
+          ],
           "default": "le-cloudflare"
         },
         {

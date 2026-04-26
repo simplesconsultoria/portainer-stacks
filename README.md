@@ -27,30 +27,36 @@ fetches `templates.json` and the per-template compose files at deploy time.
 ## Layout
 
 ```
+Makefile             Validation entrypoints: make all (lint + check-env + validate)
 templates.json       Portainer App Templates v3 index, served raw to Portainer
 
 <template-id>/
 ├── docker-compose.yml   Swarm-mode compose, ${VAR} placeholders
 ├── logo.png             Icon shown in Portainer (≤ 64×64 PNG)
-└── README.md            Template doc: what it is, env vars, NFS layout, webhooks
+├── .env.sample          Placeholder env values for `make validate`
+└── README.md            Template doc: what it is, env vars, storage layout, webhooks
 ```
 
 ## Available templates
 
-| ID              | Description                                            |
-|-----------------|--------------------------------------------------------|
-| `plone-zeo-nfs` | Plone 6 (ZEO storage, backend, Volto) — NFS-backed    |
+| ID              | Description                                                          |
+|-----------------|----------------------------------------------------------------------|
+| `plone-zeo-nfs` | Plone 6 (ZEO storage, backend, Volto) — persistent, NFS-backed       |
+| `plone-demo`    | Plone 6 (backend + Volto) — stateless sandbox, data lost on restart  |
 
 ## Companion: `cluster_playbook`
 
-Per-instance NFS directories are created by the `cluster_playbook` Ansible
-repo **before** a stack is deployed. Each template here has a matching
-`playbooks/<id>-site.yml` over there. See `.claude/CLAUDE.local.md` for the
-full split of responsibilities.
+Templates that need persistent storage (e.g. `plone-zeo-nfs`) rely on the
+`cluster_playbook` Ansible repo to pre-create per-instance NFS directories
+**before** a stack is deployed. Each NFS-backed template here has a
+matching `playbooks/<id>-site.yml` over there. Stateless templates
+(e.g. `plone-demo`) need no companion playbook. See `.claude/CLAUDE.local.md`
+for the full split of responsibilities.
 
 ## Adding a new template
 
-See `.claude/CLAUDE.local.md` for the full checklist. Short version: pick an
-`<id>`, create the directory with the three files above, append an entry to
-`templates.json`, write the matching folder-prep playbook in
-`cluster_playbook`, validate locally, and test on staging before merging.
+See `.claude/CLAUDE.local.md` for the full checklist. Short version: pick
+an `<id>`, create the directory with the four files above, append an entry
+to `templates.json`, write the matching folder-prep playbook in
+`cluster_playbook` if the template needs NFS, run `make all` locally, and
+test on staging before merging.

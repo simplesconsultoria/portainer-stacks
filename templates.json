@@ -175,6 +175,133 @@
           "default": "1450"
         }
       ]
+    },
+    {
+      "type": 2,
+      "title": "Plone (Demo)",
+      "description": "Stateless Plone 6 sandbox: backend + Volto frontend, no ZEO, no NFS. Data lives inside the container and is lost on restart. Use plone-zeo-nfs for production.",
+      "note": "Storage is ephemeral — every container restart wipes the site. Intended for demos, evaluation, and short-lived sandboxes.",
+      "categories": ["cms", "plone"],
+      "platform": "linux",
+      "logo": "https://raw.githubusercontent.com/simplesconsultoria/portainer-stacks/main/plone-demo/logo.png",
+      "repository": {
+        "url": "https://github.com/simplesconsultoria/portainer-stacks",
+        "stackfile": "plone-demo/docker-compose.yml"
+      },
+      "env": [
+        {
+          "name": "STACK_NAME",
+          "label": "Stack name (must match the field above)",
+          "description": "Type the same value you used in the stack 'Name' field at the top of this page. Used for internal Swarm DNS (${STACK_NAME}_backend)."
+        },
+        {
+          "name": "STACK_PREFIX",
+          "label": "Traefik resource prefix",
+          "description": "Short, unique prefix used in Traefik service/middleware/router names (e.g. 'demo-acme')."
+        },
+        {
+          "name": "STACK_ENV",
+          "label": "Target environment",
+          "description": "Swarm placement constraint: nodes must have node.labels.env == this value.",
+          "select": [
+            {"text": "staging", "value": "staging"},
+            {"text": "production", "value": "production"}
+          ]
+        },
+        {
+          "name": "SITE_ID",
+          "label": "Plone site id",
+          "description": "Plone site path segment (e.g. 'Plone'). Used by Volto's API path and the backend VHM rewrites.",
+          "default": "Plone"
+        },
+        {
+          "name": "DEPLOY_HOSTNAME",
+          "label": "Public hostname",
+          "description": "Hostname routed by Traefik (e.g. demo.example.com). Must already resolve to the cluster."
+        },
+        {
+          "name": "IMAGE_FRONTEND",
+          "label": "Frontend image",
+          "description": "Volto image (e.g. plone/plone-frontend or a per-tenant build).",
+          "default": "ghcr.io/plone/demo-frontend"
+        },
+        {
+          "name": "IMAGE_FRONTEND_TAG",
+          "label": "Frontend image tag",
+          "description": "Pinned tag. Avoid 'latest' in production.",
+          "default": "latest"
+        },
+        {
+          "name": "IMAGE_BACKEND",
+          "label": "Backend image",
+          "description": "Plone backend image (e.g. plone/plone-backend).",
+          "default": "ghcr.io/plone/demo-backend"
+        },
+        {
+          "name": "IMAGE_BACKEND_TAG",
+          "label": "Backend image tag",
+          "description": "Pinned tag. Avoid 'latest' in production.",
+          "default": "latest"
+        },
+        {
+          "name": "STACK_FRONTEND_REPLICAS",
+          "label": "Frontend replicas",
+          "description": "Number of Volto replicas.",
+          "default": "1"
+        },
+        {
+          "name": "STACK_FRONTEND_TYPE",
+          "label": "Frontend node type",
+          "description": "Swarm placement constraint: node.labels.type for the frontend.",
+          "select": [
+            {"text": "App", "value": "app"},
+            {"text": "Data", "value": "data"}
+          ],
+          "default": "app"
+        },
+        {
+          "name": "STACK_BACKEND_REPLICAS",
+          "label": "Backend replicas",
+          "description": "Number of Plone backend replicas. Demo storage is ephemeral and per-container — running >1 replica means each request may hit a different (out-of-sync) site.",
+          "default": "1"
+        },
+        {
+          "name": "STACK_BACKEND_TYPE",
+          "label": "Backend node type",
+          "description": "Swarm placement constraint: node.labels.type for the backend.",
+          "select": [
+            {"text": "App", "value": "app"},
+            {"text": "Data", "value": "data"}
+          ],
+          "default": "app"
+        },
+        {
+          "name": "CERTRESOLVER",
+          "label": "Traefik cert resolver",
+          "description": "Name of the Traefik certificate resolver to use.",
+          "select": [
+            {"text": "Let's Encrypt TLS", "value": "le-tls"},
+            {"text": "Cloudflare", "value": "le-cloudflare"}
+          ],
+          "default": "le-cloudflare"
+        },
+        {
+          "name": "FRONTEND_MIDDLEWARES",
+          "label": "Frontend middlewares",
+          "description": "Comma-separated Traefik middlewares for the frontend route. Add 'mw-<STACK_PREFIX>-auth' to gate the demo behind basic auth.",
+          "default": "gzip"
+        },
+        {
+          "name": "BASIC_AUTH_USER",
+          "label": "Basic auth user",
+          "description": "Username for the stack-wide auth middleware (always applied to /ClassicUI; opt-in for the frontend via FRONTEND_MIDDLEWARES)."
+        },
+        {
+          "name": "BASIC_AUTH_PASSWORD_HASH",
+          "label": "Basic auth password hash",
+          "description": "htpasswd-style hash. Never the plaintext password."
+        }
+      ]
     }
   ]
 }

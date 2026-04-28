@@ -6,7 +6,7 @@ TEMPLATES := $(patsubst %/docker-compose.yml,%,$(wildcard */docker-compose.yml))
 
 YAMLLINT_CONFIG := {extends: default, rules: {line-length: disable, truthy: {check-keys: false}}}
 
-.PHONY: help lint lint-json lint-yaml check-env validate all
+.PHONY: help lint lint-json lint-yaml check-env validate new-template all
 
 help:  ## Show this help
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -57,5 +57,50 @@ validate:  ## docker compose config per template (requires <id>/.env.sample)
 		echo "==> $$tpl"; \
 		docker compose --env-file $$envfile -f $$tpl/docker-compose.yml config > /dev/null && echo "  OK"; \
 	done
+
+new-template:  ## Scaffold a new template directory (usage: make new-template id=<id>)
+	@test -n "$(id)" || { echo "Usage: make new-template id=<template-id>"; exit 1; }
+	@test ! -d "$(id)" || { echo "Error: $(id)/ already exists"; exit 1; }
+	@mkdir -p $(id)
+	@: > $(id)/docker-compose.yml
+	@printf '%s\n' \
+	  '# Sample env values for `make validate` (`docker compose config`).' \
+	  '# Fill one entry per $${VAR} referenced in docker-compose.yml.' \
+	  '# Placeholder values only — never put real secrets here.' \
+	  > $(id)/.env.sample
+	@printf '%s\n' \
+	  '# $(id) — Portainer template' \
+	  '' \
+	  '> **TODO:** describe what this template deploys.' \
+	  '' \
+	  '## Services' \
+	  '' \
+	  '| Service | Replicas | Public | Notes |' \
+	  '|---------|----------|--------|-------|' \
+	  '| _TBD_   | _TBD_    | _TBD_  | _TBD_ |' \
+	  '' \
+	  '## Environment variables' \
+	  '' \
+	  '> Keep `templates.json env[]` in sync with every $${VAR} referenced in' \
+	  '> `docker-compose.yml` — `make check-env` enforces this.' \
+	  '' \
+	  '## Storage layout' \
+	  '' \
+	  '> **TODO:** NFS / named volumes / ephemeral.' \
+	  '' \
+	  '## Webhook plan' \
+	  '' \
+	  '> **TODO:** which services expose Portainer service webhooks.' \
+	  '' \
+	  '## Known limitations' \
+	  '' \
+	  '> **TODO:**' \
+	  > $(id)/README.md
+	@echo "Scaffolded $(id)/. Next steps:"
+	@echo "  1. Fill $(id)/docker-compose.yml"
+	@echo "  2. Append a templates.json entry"
+	@echo "  3. Add a row to the 'Available templates' table in README.md"
+	@echo "  4. Drop a logo.png in $(id)/"
+	@echo "  5. Run 'make all' to validate"
 
 all: lint check-env validate  ## Run every check

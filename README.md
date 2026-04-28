@@ -39,10 +39,11 @@ templates.json       Portainer App Templates v3 index, served raw to Portainer
 
 ## Available templates
 
-| ID              | Description                                                          |
-|-----------------|----------------------------------------------------------------------|
-| `plone-zeo-nfs` | Plone 6 (ZEO storage, backend, Volto) — persistent, NFS-backed       |
-| `plone-demo`    | Plone 6 (backend + Volto) — stateless sandbox, data lost on restart  |
+| ID              | Description                                                                |
+|-----------------|----------------------------------------------------------------------------|
+| `plone-zeo-nfs` | Plone 6 (ZEO storage, backend, Volto) — persistent, NFS-backed             |
+| `plone-demo`    | Plone 6 (backend + Volto) — stateless sandbox, data lost on restart        |
+| `swarm-cronjob` | `crazymax/swarm-cronjob` — schedule cron jobs on Swarm services via labels |
 
 ## Companion: `cluster_playbook`
 

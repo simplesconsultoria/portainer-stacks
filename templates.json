@@ -302,6 +302,61 @@
           "description": "htpasswd-style hash. Never the plaintext password."
         }
       ]
+    },
+    {
+      "type": 2,
+      "title": "Swarm Cronjob",
+      "description": "Single-replica controller (crazymax/swarm-cronjob) that schedules cron-like jobs on Swarm services via labels on the target services. Deploy one per Swarm cluster.",
+      "note": "Pinned to a manager node (needs the Docker socket). The compose hard-codes replicas: 1 — two parallel controllers would double-fire every job.",
+      "categories": ["scheduler", "infrastructure"],
+      "platform": "linux",
+      "logo": "https://raw.githubusercontent.com/simplesconsultoria/portainer-stacks/main/swarm-cronjob/logo.png",
+      "repository": {
+        "url": "https://github.com/simplesconsultoria/portainer-stacks",
+        "stackfile": "swarm-cronjob/docker-compose.yml"
+      },
+      "env": [
+        {
+          "name": "IMAGE_CRONJOB",
+          "label": "Cronjob image",
+          "description": "swarm-cronjob image. Override only for a private mirror.",
+          "default": "crazymax/swarm-cronjob"
+        },
+        {
+          "name": "IMAGE_CRONJOB_TAG",
+          "label": "Cronjob image tag",
+          "description": "Pinned tag. Avoid 'latest' in production.",
+          "default": "latest"
+        },
+        {
+          "name": "TZ",
+          "label": "Timezone",
+          "description": "IANA timezone used to evaluate every swarm.cronjob.schedule expression (e.g. America/Sao_Paulo).",
+          "default": "UTC"
+        },
+        {
+          "name": "LOG_LEVEL",
+          "label": "Log level",
+          "description": "Logger verbosity.",
+          "select": [
+            {"text": "debug", "value": "debug"},
+            {"text": "info", "value": "info"},
+            {"text": "warn", "value": "warn"},
+            {"text": "error", "value": "error"}
+          ],
+          "default": "info"
+        },
+        {
+          "name": "LOG_JSON",
+          "label": "JSON logs",
+          "description": "Emit JSON-formatted logs. Useful when shipping to a log aggregator.",
+          "select": [
+            {"text": "false", "value": "false"},
+            {"text": "true", "value": "true"}
+          ],
+          "default": "false"
+        }
+      ]
     }
   ]
 }

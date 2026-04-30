@@ -54,7 +54,7 @@ services:
       - 'set -a; [ -f /run/configs/backend.env ] && . /run/configs/backend.env; set +a; exec /app/docker-entrypoint.sh "$$@"'
       - sh-wrapper
     environment:
-      RELSTORAGE_DSN: "dbname='${DB_NAME}' user='${DB_NAME}' host='${DB_HOST}' password='${DB_PASSWORD}' port='${DB_PORT}'"
+      RELSTORAGE_DSN: "dbname='${DB_NAME}' user='${DB_USERNAME}' host='${DB_HOST}' password='${DB_PASSWORD}' port='${DB_PORT}'"
     networks:
       - public
     configs:

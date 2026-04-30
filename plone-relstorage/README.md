@@ -37,9 +37,10 @@ Postgres database, role, and credentials**, which is out of scope here.
 Before deploying, the operator must have:
 
 1. A reachable Postgres instance (managed or self-hosted).
-2. A role and database for this site. By convention, the role name
-   matches the database name — the compose uses `${DB_NAME}` for both
-   `dbname` and `user` in the RelStorage DSN.
+2. A database (`${DB_NAME}`) and a role (`${DB_USERNAME}`) for this
+   site. The two are separate vars so you can run against managed
+   Postgres setups where the role name differs from the database name;
+   when they match, just set both to the same value.
 3. Network access from the Swarm `app` nodes to the Postgres host on
    the configured port.
 4. The role must have privileges to create the RelStorage schema on
@@ -78,8 +79,9 @@ sensible default; the deployment will fail or misbehave without it.
 |-----------------|:--------:|---------|------------------------------------------------------------------------------------------------------|
 | `DB_HOST`       | yes      | —       | Postgres host reachable from the Swarm `app` nodes. May be a DNS name or IP.                         |
 | `DB_PORT`       | no       | `5432`  | Postgres port.                                                                                       |
-| `DB_NAME`       | yes      | —       | Postgres database **and** role name. The DSN reuses this value for `dbname` and `user`.              |
-| `DB_PASSWORD`   | yes      | —       | Postgres password. **Secret** — never set as a default.                                              |
+| `DB_NAME`       | yes      | —       | Postgres database name (`dbname` in the RelStorage DSN).                                             |
+| `DB_USERNAME`   | yes      | —       | Postgres role used to connect (`user` in the RelStorage DSN). Often equal to `${DB_NAME}` but separable for managed Postgres setups. |
+| `DB_PASSWORD`   | yes      | —       | Password for the `${DB_USERNAME}` role. **Secret** — never set as a default.                         |
 
 ### Routing & TLS (Traefik)
 

@@ -381,13 +381,18 @@
         },
         {
           "name": "DB_NAME",
-          "label": "Postgres database & role",
-          "description": "Postgres database name. Reused as the role/user — the RelStorage DSN sets dbname=user=${DB_NAME}."
+          "label": "Postgres database",
+          "description": "Postgres database name used in the RelStorage DSN (dbname=${DB_NAME})."
+        },
+        {
+          "name": "DB_USERNAME",
+          "label": "Postgres role/user",
+          "description": "Postgres role used to connect (user=${DB_USERNAME}). Often the same as ${DB_NAME}, but separated to support managed Postgres setups where the role and database names differ."
         },
         {
           "name": "DB_PASSWORD",
           "label": "Postgres password",
-          "description": "Password for the ${DB_NAME} role. Secret — never paste it into a default value."
+          "description": "Password for the ${DB_USERNAME} role. Secret — never paste it into a default value."
         },
         {
           "name": "STACK_FRONTEND_REPLICAS",

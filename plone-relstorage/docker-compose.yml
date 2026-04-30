@@ -5,10 +5,18 @@ services:
 
   frontend:
     image: ${IMAGE_FRONTEND}:${IMAGE_FRONTEND_TAG:-latest}
+    entrypoint:
+      - /bin/sh
+      - -c
+      - 'set -a; [ -f /run/configs/frontend.env ] && . /run/configs/frontend.env; set +a; exec pnpm "$$@"'
+      - sh-wrapper
     environment:
       RAZZLE_INTERNAL_API_PATH: http://${STACK_NAME}_backend:8080/${SITE_ID}
     networks:
       - public
+    configs:
+      - source: frontend_env
+        target: /run/configs/frontend.env
     deploy:
       replicas: ${STACK_FRONTEND_REPLICAS:-1}
       placement:
@@ -40,10 +48,18 @@ services:
 
   backend:
     image: ${IMAGE_BACKEND}:${IMAGE_BACKEND_TAG:-latest}
+    entrypoint:
+      - /bin/sh
+      - -c
+      - 'set -a; [ -f /run/configs/backend.env ] && . /run/configs/backend.env; set +a; exec /app/docker-entrypoint.sh "$$@"'
+      - sh-wrapper
     environment:
       RELSTORAGE_DSN: "dbname='${DB_NAME}' user='${DB_NAME}' host='${DB_HOST}' password='${DB_PASSWORD}' port='${DB_PORT}'"
     networks:
       - public
+    configs:
+      - source: backend_env
+        target: /run/configs/backend.env
     deploy:
       replicas: ${STACK_BACKEND_REPLICAS:-1}
       placement:
@@ -87,3 +103,11 @@ services:
 networks:
   public:
     external: true
+
+configs:
+  backend_env:
+    external: true
+    name: ${STACK_PREFIX}_backend_env_${BACKEND_ENV_VERSION:-v0}
+  frontend_env:
+    external: true
+    name: ${STACK_PREFIX}_frontend_env_${FRONTEND_ENV_VERSION:-v0}

@@ -91,6 +91,41 @@ sensible default; the deployment will fail or misbehave without it.
 | `BASIC_AUTH_USER`           | yes      | —               | Basic-auth user for the stack-wide `mw-${STACK_PREFIX}-auth` middleware (always applied to `/ClassicUI`; opt-in for the frontend via `FRONTEND_MIDDLEWARES`). |
 | `BASIC_AUTH_PASSWORD_HASH`  | yes      | —               | Basic-auth password as an htpasswd-style hash. Never the plaintext password.                 |
 
+### Service env overrides (Swarm configs)
+
+Each service's entrypoint sources a `*.env` file mounted from a Swarm
+**config** before launching, so config objects can inject arbitrary
+environment variables (Plone tunables, RelStorage cache settings,
+frontend runtime config, etc.) without editing the compose file. The
+config objects **must exist in the cluster before deployment** — Swarm
+refuses to deploy a stack referencing a missing external config.
+Configs are immutable, so rotation means creating a new object with the
+next version suffix and bumping the corresponding `*_ENV_VERSION` var.
+
+| Variable                | Required | Default | Description                                                                                                                                                              |
+|-------------------------|:--------:|---------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `BACKEND_ENV_VERSION`   | no       | `v0`    | Version suffix of the backend Swarm config. The compose references `${STACK_PREFIX}_backend_env_${BACKEND_ENV_VERSION}`, mounted at `/run/configs/backend.env`.          |
+| `FRONTEND_ENV_VERSION`  | no       | `v0`    | Version suffix of the frontend Swarm config. The compose references `${STACK_PREFIX}_frontend_env_${FRONTEND_ENV_VERSION}`, mounted at `/run/configs/frontend.env`.      |
+
+Create the configs in Portainer (**Configs → Add config**) or via CLI:
+
+```bash
+docker config create acme-prod_backend_env_v0 ./backend.env
+docker config create acme-prod_frontend_env_v0 ./frontend.env
+```
+
+Where each file is plain `KEY=value` lines (shell-sourceable), e.g.:
+
+```bash
+# backend.env
+RELSTORAGE_CACHE_LOCAL_MB=200
+ZOPE_THREADS=4
+```
+
+If a mounted file ends up empty, the wrapper silently no-ops and the
+service starts normally — useful for deploying with a placeholder
+`v0` config you fill in later.
+
 ## Webhook plan
 
 Same pattern as the other Plone templates: after the stack is deployed,

@@ -446,6 +446,18 @@
           "name": "BASIC_AUTH_PASSWORD_HASH",
           "label": "Basic auth password hash",
           "description": "htpasswd-style hash. Never the plaintext password."
+        },
+        {
+          "name": "BACKEND_ENV_VERSION",
+          "label": "Backend env config version",
+          "description": "Version suffix of the Swarm config providing extra env vars to the backend (mounted at /run/configs/backend.env and sourced before launch). The compose mounts ${STACK_PREFIX}_backend_env_${BACKEND_ENV_VERSION} — the config object must already exist in the cluster. Bump to roll new values.",
+          "default": "v0"
+        },
+        {
+          "name": "FRONTEND_ENV_VERSION",
+          "label": "Frontend env config version",
+          "description": "Version suffix of the Swarm config providing extra env vars to the frontend (mounted at /run/configs/frontend.env and sourced before launch). The compose mounts ${STACK_PREFIX}_frontend_env_${FRONTEND_ENV_VERSION} — the config object must already exist in the cluster. Bump to roll new values.",
+          "default": "v0"
         }
       ]
     },

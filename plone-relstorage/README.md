@@ -95,11 +95,22 @@ functionally equivalent to disabling. Set a real probe only when you
 know your frontend CMD binds fast enough that the check won't stall
 updates during the wrapper's boot path.
 
-> **Why default to `true` and not `NONE`?** Compose's "disable" form
-> requires the YAML list `["NONE"]`. An env-substituted string `NONE`
-> gets normalized to `["CMD-SHELL", "NONE"]`, which executes the literal
-> command `NONE` and **fails every time** — leaving the task `unhealthy`,
-> which is the exact state we're trying to avoid.
+> **Two Compose traps avoided here.** Picking the right syntax for an
+> env-overridable `healthcheck.test` is deceptively easy:
+>
+> 1. **`test: NONE` doesn't disable.** Compose's disable form needs
+>    the YAML *list* `["NONE"]`. A string-substituted `NONE` gets
+>    normalized to `["CMD-SHELL", "NONE"]`, which runs the literal
+>    command `NONE` and **fails every time** — leaving the task
+>    `unhealthy`, the exact state we're trying to avoid.
+> 2. **The interpolation must be quoted.** `test: ${X:-true}`
+>    (unquoted) yields `test: true`, which YAML 1.2 parses as a
+>    boolean — Compose/Portainer rejects the stack with `"healthcheck.test
+>    must be a string"`. `docker compose config` hides the bug by
+>    coercing the value back to a string in its output, so `make
+>    validate` passes while a real deploy fails. Wrapping in double
+>    quotes (`test: "${X:-true}"`) forces a YAML string scalar
+>    regardless of what the substitution yields.
 
 | Variable                    | Required | Default | Description                                                                                                                                |
 |-----------------------------|:--------:|---------|--------------------------------------------------------------------------------------------------------------------------------------------|

@@ -1,0 +1,89 @@
+---
+version: '3.9'
+
+services:
+
+  frontend:
+    image: ${IMAGE_FRONTEND}:${IMAGE_FRONTEND_TAG:-latest}
+    environment:
+      RAZZLE_INTERNAL_API_PATH: http://${STACK_NAME}_backend:8080/${SITE_ID}
+    networks:
+      - public
+    deploy:
+      replicas: ${STACK_FRONTEND_REPLICAS:-1}
+      placement:
+        constraints:
+          - node.labels.type == ${STACK_FRONTEND_TYPE:-app}
+          - node.labels.env == ${STACK_ENV}
+      update_config:
+        parallelism: 1
+        delay: 5s
+        order: start-first
+      labels:
+        - traefik.enable=true
+        - traefik.docker.network=public
+        - traefik.constraint-label=public
+        # Service
+        - traefik.http.services.svc-${STACK_PREFIX}-frontend.loadbalancer.server.port=3000
+        # Middlewares
+        ## Basic Authentication (stack-wide; reuse via mw-${STACK_PREFIX}-auth)
+        - traefik.http.middlewares.mw-${STACK_PREFIX}-auth.basicauth.removeheader=true
+        - traefik.http.middlewares.mw-${STACK_PREFIX}-auth.basicauth.users=${BASIC_AUTH_USER}:${BASIC_AUTH_PASSWORD_HASH}
+        # Routers
+        ## External /
+        - traefik.http.routers.rt-${STACK_PREFIX}-frontend.rule=Host(`${DEPLOY_HOSTNAME}`)
+        - traefik.http.routers.rt-${STACK_PREFIX}-frontend.entrypoints=https
+        - traefik.http.routers.rt-${STACK_PREFIX}-frontend.tls=true
+        - traefik.http.routers.rt-${STACK_PREFIX}-frontend.tls.certresolver=${CERTRESOLVER:-le-cloudflare}
+        - traefik.http.routers.rt-${STACK_PREFIX}-frontend.service=svc-${STACK_PREFIX}-frontend
+        - traefik.http.routers.rt-${STACK_PREFIX}-frontend.middlewares=${FRONTEND_MIDDLEWARES:-gzip}
+
+  backend:
+    image: ${IMAGE_BACKEND}:${IMAGE_BACKEND_TAG:-latest}
+    environment:
+      RELSTORAGE_DSN: "dbname='${DB_NAME}' user='${DB_NAME}' host='${DB_HOST}' password='${DB_PASSWORD}' port='${DB_PORT}'"
+    networks:
+      - public
+    deploy:
+      replicas: ${STACK_BACKEND_REPLICAS:-1}
+      placement:
+        constraints:
+          - node.labels.type == ${STACK_BACKEND_TYPE:-app}
+          - node.labels.env == ${STACK_ENV}
+      update_config:
+        parallelism: 1
+        delay: 5s
+        order: start-first
+      labels:
+        - traefik.enable=true
+        - traefik.docker.network=public
+        - traefik.constraint-label=public
+        # Services
+        - traefik.http.services.svc-${STACK_PREFIX}-backend.loadbalancer.server.port=8080
+
+        # Middlewares
+        ## VHM rewrite /++api++/
+        - "traefik.http.middlewares.mw-${STACK_PREFIX}-backend-vhm-api.replacepathregex.regex=^/\\+\\+api\\+\\+($$|/.*)"
+        - "traefik.http.middlewares.mw-${STACK_PREFIX}-backend-vhm-api.replacepathregex.replacement=/VirtualHostBase/https/${DEPLOY_HOSTNAME}/${SITE_ID}/++api++/VirtualHostRoot$$1"
+
+        ## VHM rewrite /ClassicUI/
+        - "traefik.http.middlewares.mw-${STACK_PREFIX}-backend-vhm-classic.replacepathregex.regex=^/ClassicUI($$|/.*)"
+        - "traefik.http.middlewares.mw-${STACK_PREFIX}-backend-vhm-classic.replacepathregex.replacement=/VirtualHostBase/https/${DEPLOY_HOSTNAME}/${SITE_ID}/VirtualHostRoot/_vh_ClassicUI$$1"
+
+        # Routes
+        ## /++api++
+        - traefik.http.routers.rt-${STACK_PREFIX}-backend-api.rule=Host(`${DEPLOY_HOSTNAME}`) && PathPrefix(`/++api++`)
+        - traefik.http.routers.rt-${STACK_PREFIX}-backend-api.entrypoints=https
+        - traefik.http.routers.rt-${STACK_PREFIX}-backend-api.tls=true
+        - traefik.http.routers.rt-${STACK_PREFIX}-backend-api.service=svc-${STACK_PREFIX}-backend
+        - traefik.http.routers.rt-${STACK_PREFIX}-backend-api.middlewares=gzip,mw-${STACK_PREFIX}-backend-vhm-api
+        ## /ClassicUI
+        - traefik.http.routers.rt-${STACK_PREFIX}-backend-classic.rule=Host(`${DEPLOY_HOSTNAME}`) && PathPrefix(`/ClassicUI`)
+        - traefik.http.routers.rt-${STACK_PREFIX}-backend-classic.entrypoints=https
+        - traefik.http.routers.rt-${STACK_PREFIX}-backend-classic.tls=true
+        - traefik.http.routers.rt-${STACK_PREFIX}-backend-classic.service=svc-${STACK_PREFIX}-backend
+        - traefik.http.routers.rt-${STACK_PREFIX}-backend-classic.middlewares=gzip,mw-${STACK_PREFIX}-auth,mw-${STACK_PREFIX}-backend-vhm-classic
+
+networks:
+  public:
+    external: true

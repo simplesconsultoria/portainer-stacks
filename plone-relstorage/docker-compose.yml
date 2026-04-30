@@ -27,7 +27,12 @@ services:
     # which always *fails*.) Opt in to a real probe by overriding
     # `FRONTEND_HEALTHCHECK_TEST` per-stack with a CMD-SHELL string.
     healthcheck:
-      test: ${FRONTEND_HEALTHCHECK_TEST:-true}
+      # Quote the interpolation so the default `true` lands as the YAML
+      # string "true" (Compose then wraps it as CMD-SHELL true → exit 0).
+      # Without the quotes, YAML parses unquoted `true` as a boolean and
+      # Compose/Portainer rejects the stack with "healthcheck.test must
+      # be a string".
+      test: "${FRONTEND_HEALTHCHECK_TEST:-true}"
     environment:
       RAZZLE_INTERNAL_API_PATH: http://${STACK_NAME}_backend:8080/${SITE_ID}
       RAZZLE_API_PATH: https://${DEPLOY_HOSTNAME}

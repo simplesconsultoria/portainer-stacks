@@ -364,6 +364,12 @@
           "default": "pnpm start"
         },
         {
+          "name": "FRONTEND_HEALTHCHECK_TEST",
+          "label": "Frontend healthcheck test",
+          "description": "Compose healthcheck.test for the frontend, as a CMD-SHELL string. The default 'true' is the shell builtin that always exits 0, so the task reports healthy immediately and overrides any probe baked into the image. Set this to a real probe (e.g. 'curl -fsS http://localhost:3000/') only if your image's CMD is known to bind quickly enough that a real check won't stall rolling updates.",
+          "default": "true"
+        },
+        {
           "name": "IMAGE_BACKEND",
           "label": "Backend image",
           "description": "Plone backend image. Must include RelStorage and a Postgres driver (psycopg2/psycopg3)."

@@ -15,8 +15,22 @@ services:
       - 'set -a; [ -f /run/configs/frontend.env ] && . /run/configs/frontend.env; set +a; exec docker-entrypoint.sh "$$@"'
       - sh-wrapper
     command: ${FRONTEND_COMMAND:-pnpm start}
+    # Override any HEALTHCHECK baked into the image with an always-pass
+    # probe. Some Volto images ship a healthcheck that probes a port/path
+    # the wrapper doesn't expose during boot, which keeps the container
+    # `unhealthy` indefinitely and stalls rolling updates with
+    # order: start-first. The Swarm router keys off task state (running
+    # and not exited), not on Docker healthcheck status, so an always-pass
+    # probe is functionally equivalent to disabling. (We can't truly
+    # disable via env — Compose's disable form needs the list ["NONE"],
+    # and a string-substituted "NONE" normalizes to ["CMD-SHELL", "NONE"]
+    # which always *fails*.) Opt in to a real probe by overriding
+    # `FRONTEND_HEALTHCHECK_TEST` per-stack with a CMD-SHELL string.
+    healthcheck:
+      test: ${FRONTEND_HEALTHCHECK_TEST:-true}
     environment:
       RAZZLE_INTERNAL_API_PATH: http://${STACK_NAME}_backend:8080/${SITE_ID}
+      RAZZLE_API_PATH: https://${DEPLOY_HOSTNAME}
     networks:
       - public
     configs:

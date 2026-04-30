@@ -82,6 +82,29 @@ sensible default; the deployment will fail or misbehave without it.
 > `command:` in the compose. The `*_COMMAND` vars expose that override
 > to the operator, defaulting to upstream Plone / Volto.
 
+### Healthchecks
+
+The frontend's `healthcheck:` is overridable; the backend uses whatever
+the image ships. The default `FRONTEND_HEALTHCHECK_TEST=true` swaps any
+healthcheck baked into the frontend image for the shell builtin `true`,
+which always exits 0 — some Volto builds ship probes that fail during
+boot and leave the task `unhealthy` indefinitely, which then stalls
+`order: start-first` rolling updates. Swarm routing keys off task state
+(running and not exited), not Docker health, so an always-pass probe is
+functionally equivalent to disabling. Set a real probe only when you
+know your frontend CMD binds fast enough that the check won't stall
+updates during the wrapper's boot path.
+
+> **Why default to `true` and not `NONE`?** Compose's "disable" form
+> requires the YAML list `["NONE"]`. An env-substituted string `NONE`
+> gets normalized to `["CMD-SHELL", "NONE"]`, which executes the literal
+> command `NONE` and **fails every time** — leaving the task `unhealthy`,
+> which is the exact state we're trying to avoid.
+
+| Variable                    | Required | Default | Description                                                                                                                                |
+|-----------------------------|:--------:|---------|--------------------------------------------------------------------------------------------------------------------------------------------|
+| `FRONTEND_HEALTHCHECK_TEST` | no       | `true`  | Compose `healthcheck.test` for the frontend, as a CMD-SHELL string. Default `true` always passes. Set to a real probe (e.g. `curl -fsS http://localhost:3000/`) only if needed. |
+
 ### Database (external Postgres)
 
 | Variable        | Required | Default | Description                                                                                          |

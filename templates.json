@@ -358,6 +358,12 @@
           "default": "latest"
         },
         {
+          "name": "FRONTEND_COMMAND",
+          "label": "Frontend launch command",
+          "description": "Command passed to the frontend image's docker-entrypoint.sh after the env-config wrapper sources /run/configs/frontend.env. Default suits upstream Volto images. Override for non-upstream images with a different CMD (e.g. older Volto using 'yarn start:prod').",
+          "default": "pnpm start"
+        },
+        {
           "name": "IMAGE_BACKEND",
           "label": "Backend image",
           "description": "Plone backend image. Must include RelStorage and a Postgres driver (psycopg2/psycopg3)."
@@ -367,6 +373,12 @@
           "label": "Backend image tag",
           "description": "Pinned tag. Avoid 'latest' in production.",
           "default": "latest"
+        },
+        {
+          "name": "BACKEND_COMMAND",
+          "label": "Backend launch command",
+          "description": "Command passed to the backend image's /app/docker-entrypoint.sh after the env-config wrapper sources /run/configs/backend.env. Default 'start' fires the upstream Plone backend launch path. Override only for images whose CMD differs from upstream.",
+          "default": "start"
         },
         {
           "name": "DB_HOST",

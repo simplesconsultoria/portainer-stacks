@@ -1,15 +1,20 @@
 ---
-version: '3.9'
-
 services:
 
   frontend:
     image: ${IMAGE_FRONTEND}:${IMAGE_FRONTEND_TAG:-latest}
+    # The wrapper sources the Swarm config, then exec's the image's
+    # native ENTRYPOINT (`docker-entrypoint.sh`) so its init logic runs
+    # unchanged. The original CMD is reasserted via `command:` below
+    # — defining `entrypoint:` resets CMD, so we put it back explicitly.
+    # Override `FRONTEND_COMMAND` for non-upstream images that don't use
+    # `pnpm start` (e.g. older Volto using `yarn start:prod`).
     entrypoint:
       - /bin/sh
       - -c
-      - 'set -a; [ -f /run/configs/frontend.env ] && . /run/configs/frontend.env; set +a; exec pnpm "$$@"'
+      - 'set -a; [ -f /run/configs/frontend.env ] && . /run/configs/frontend.env; set +a; exec docker-entrypoint.sh "$$@"'
       - sh-wrapper
+    command: ${FRONTEND_COMMAND:-pnpm start}
     environment:
       RAZZLE_INTERNAL_API_PATH: http://${STACK_NAME}_backend:8080/${SITE_ID}
     networks:
@@ -48,11 +53,19 @@ services:
 
   backend:
     image: ${IMAGE_BACKEND}:${IMAGE_BACKEND_TAG:-latest}
+    # The wrapper sources the Swarm config, then exec's the image's
+    # native ENTRYPOINT (`/app/docker-entrypoint.sh`) so its init logic
+    # runs unchanged — the entrypoint's `if [ "$1" = "start" ]` branch
+    # still fires because we re-pass the original CMD via `command:`
+    # (defining `entrypoint:` resets CMD, so we put it back explicitly).
+    # Override `BACKEND_COMMAND` only for images whose CMD differs from
+    # upstream Plone's `start`.
     entrypoint:
       - /bin/sh
       - -c
       - 'set -a; [ -f /run/configs/backend.env ] && . /run/configs/backend.env; set +a; exec /app/docker-entrypoint.sh "$$@"'
       - sh-wrapper
+    command: ${BACKEND_COMMAND:-start}
     environment:
       RELSTORAGE_DSN: "dbname='${DB_NAME}' user='${DB_USERNAME}' host='${DB_HOST}' password='${DB_PASSWORD}' port='${DB_PORT}'"
     networks:

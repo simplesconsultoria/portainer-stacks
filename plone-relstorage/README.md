@@ -70,8 +70,17 @@ sensible default; the deployment will fail or misbehave without it.
 |-----------------------|:--------:|----------------------------------|----------------------------------------------------------------------------------------------|
 | `IMAGE_FRONTEND`      | yes      | —                                | Volto frontend image (e.g. `plone/plone-frontend` or a per-tenant build).                    |
 | `IMAGE_FRONTEND_TAG`  | no       | `latest`                         | Frontend image tag. **Pin in production.**                                                   |
+| `FRONTEND_COMMAND`    | no       | `pnpm start`                     | Command passed to the frontend image's `docker-entrypoint.sh`. Override for non-upstream Volto images (e.g. older Volto using `yarn start:prod`). |
 | `IMAGE_BACKEND`       | yes      | —                                | Plone backend image. Must include RelStorage + a Postgres driver (psycopg2/psycopg3).        |
 | `IMAGE_BACKEND_TAG`   | no       | `latest`                         | Backend image tag. **Pin in production.**                                                    |
+| `BACKEND_COMMAND`     | no       | `start`                          | Command passed to the backend image's `/app/docker-entrypoint.sh`. Override only for images whose CMD differs from upstream Plone. |
+
+> **Why these `_COMMAND` vars exist.** Each service uses an `entrypoint:`
+> wrapper to source a Swarm-config `.env` file before launching, then
+> `exec`s the image's native entrypoint. Defining `entrypoint:` resets
+> the image's `CMD`, so the original command must be reasserted via
+> `command:` in the compose. The `*_COMMAND` vars expose that override
+> to the operator, defaulting to upstream Plone / Volto.
 
 ### Database (external Postgres)
 

@@ -70,17 +70,21 @@ sensible default; the deployment will fail or misbehave without it.
 |-----------------------|:--------:|----------------------------------|----------------------------------------------------------------------------------------------|
 | `IMAGE_FRONTEND`      | yes      | —                                | Volto frontend image (e.g. `plone/plone-frontend` or a per-tenant build).                    |
 | `IMAGE_FRONTEND_TAG`  | no       | `latest`                         | Frontend image tag. **Pin in production.**                                                   |
-| `FRONTEND_COMMAND`    | no       | `pnpm start`                     | Command passed to the frontend image's `docker-entrypoint.sh`. Override for non-upstream Volto images (e.g. older Volto using `yarn start:prod`). |
+| `FRONTEND_ENTRYPOINT` | no       | `pnpm`                           | Launcher the frontend wrapper exec's (`exec <FRONTEND_ENTRYPOINT> <FRONTEND_COMMAND>`). The Volto image has no entrypoint script, so it defaults to `pnpm`. Override for a non-pnpm launcher (e.g. `node`) or a custom entrypoint. |
+| `FRONTEND_COMMAND`    | no       | `start:prod`                     | Args passed to the launcher (`exec <FRONTEND_ENTRYPOINT> <FRONTEND_COMMAND>`). With the default `pnpm` launcher this is a pnpm script; `start:prod` serves the production SSR build. |
 | `IMAGE_BACKEND`       | yes      | —                                | Plone backend image. Must include RelStorage + a Postgres driver (psycopg2/psycopg3).        |
 | `IMAGE_BACKEND_TAG`   | no       | `latest`                         | Backend image tag. **Pin in production.**                                                    |
 | `BACKEND_COMMAND`     | no       | `start`                          | Command passed to the backend image's `/app/docker-entrypoint.sh`. Override only for images whose CMD differs from upstream Plone. |
 
-> **Why these `_COMMAND` vars exist.** Each service uses an `entrypoint:`
-> wrapper to source a Swarm-config `.env` file before launching, then
-> `exec`s the image's native entrypoint. Defining `entrypoint:` resets
-> the image's `CMD`, so the original command must be reasserted via
-> `command:` in the compose. The `*_COMMAND` vars expose that override
-> to the operator, defaulting to upstream Plone / Volto.
+> **Why these launch-override vars exist.** Each service uses an
+> `entrypoint:` wrapper to source a Swarm-config `.env` file before
+> launching. The backend then `exec`s its image's native entrypoint
+> (`/app/docker-entrypoint.sh`); the frontend (Volto) image ships no
+> entrypoint script, so its wrapper `exec`s `${FRONTEND_ENTRYPOINT}`
+> (default `pnpm`) directly. Defining `entrypoint:` clears any image
+> `CMD`, so the launch command is reasserted via `command:` —
+> `${BACKEND_COMMAND}` (default `start`) and `${FRONTEND_COMMAND}`
+> (default `start:prod`, i.e. `pnpm start:prod`).
 
 ### Healthchecks
 

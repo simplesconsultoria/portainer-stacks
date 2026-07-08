@@ -175,10 +175,16 @@
           "default": "1450"
         },
         {
+          "name": "FRONTEND_ENTRYPOINT",
+          "label": "Frontend launcher binary",
+          "description": "Launcher the frontend wrapper exec's, as 'exec <FRONTEND_ENTRYPOINT> <FRONTEND_COMMAND>', after sourcing /run/configs/frontend.env. The Volto image ships no entrypoint script, so it defaults to 'pnpm'. Override for a non-pnpm launcher (e.g. 'node') or to call a custom entrypoint script.",
+          "default": "pnpm"
+        },
+        {
           "name": "FRONTEND_COMMAND",
           "label": "Frontend launch command",
-          "description": "Command passed to the frontend image's docker-entrypoint.sh after the env-config wrapper sources /run/configs/frontend.env. Default suits upstream Volto images. Override for non-upstream images with a different CMD (e.g. older Volto using 'yarn start:prod').",
-          "default": "pnpm start"
+          "description": "Args passed to the launcher, as 'exec <FRONTEND_ENTRYPOINT> <FRONTEND_COMMAND>'. With the default 'pnpm' launcher this is a pnpm script; 'start:prod' serves the production SSR build. Override for images whose script differs.",
+          "default": "start:prod"
         },
         {
           "name": "BACKEND_COMMAND",
@@ -382,10 +388,16 @@
           "default": "latest"
         },
         {
+          "name": "FRONTEND_ENTRYPOINT",
+          "label": "Frontend launcher binary",
+          "description": "Launcher the frontend wrapper exec's, as 'exec <FRONTEND_ENTRYPOINT> <FRONTEND_COMMAND>', after sourcing /run/configs/frontend.env. The Volto image ships no entrypoint script, so it defaults to 'pnpm'. Override for a non-pnpm launcher (e.g. 'node') or to call a custom entrypoint script.",
+          "default": "pnpm"
+        },
+        {
           "name": "FRONTEND_COMMAND",
           "label": "Frontend launch command",
-          "description": "Command passed to the frontend image's docker-entrypoint.sh after the env-config wrapper sources /run/configs/frontend.env. Default suits upstream Volto images. Override for non-upstream images with a different CMD (e.g. older Volto using 'yarn start:prod').",
-          "default": "pnpm start"
+          "description": "Args passed to the launcher, as 'exec <FRONTEND_ENTRYPOINT> <FRONTEND_COMMAND>'. With the default 'pnpm' launcher this is a pnpm script; 'start:prod' serves the production SSR build. Override for images whose script differs.",
+          "default": "start:prod"
         },
         {
           "name": "FRONTEND_HEALTHCHECK_TEST",

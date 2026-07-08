@@ -3,24 +3,20 @@ services:
 
   frontend:
     image: ${IMAGE_FRONTEND}:${IMAGE_FRONTEND_TAG:-latest}
-    # The wrapper sources the Swarm config, then exec's the image's
-    # native ENTRYPOINT (`docker-entrypoint.sh`) so its init logic runs
-    # unchanged. The original CMD is reasserted via `command:` below
-    # — defining `entrypoint:` resets CMD, so we put it back explicitly.
-    # Override `FRONTEND_COMMAND` for non-upstream images that don't use
-    # `pnpm start` (e.g. older Volto using `yarn start:prod`).
-    #
-    # CAVEAT: RAZZLE_* variables are build-time — Volto inlines them into
-    # the browser bundle during `pnpm build`. Sourcing them here only
-    # affects SSR-side (Node) reads at runtime; changing e.g.
-    # RAZZLE_MATOMO_* via the env config will NOT reach the client bundle
-    # without a rebuild of the frontend image.
+    # The frontend (Volto) image ships no entrypoint script, so the
+    # wrapper sources the Swarm config and then exec's the launcher
+    # `${FRONTEND_ENTRYPOINT:-pnpm}` with the start command from
+    # `command:` — `pnpm start:prod` by default (defining `entrypoint:`
+    # clears any image CMD, so we set it explicitly; `start:prod` serves
+    # the production SSR build). Override `FRONTEND_COMMAND` for a
+    # different pnpm script, or `FRONTEND_ENTRYPOINT` for a non-pnpm
+    # launcher (e.g. `node`).
     entrypoint:
       - /bin/sh
       - -c
-      - 'set -a; [ -f /run/configs/frontend.env ] && . /run/configs/frontend.env; set +a; exec docker-entrypoint.sh "$$@"'
+      - 'set -a; [ -f /run/configs/frontend.env ] && . /run/configs/frontend.env; set +a; exec ${FRONTEND_ENTRYPOINT:-pnpm} "$$@"'
       - sh-wrapper
-    command: ${FRONTEND_COMMAND:-pnpm start}
+    command: ${FRONTEND_COMMAND:-start:prod}
     environment:
       RAZZLE_INTERNAL_API_PATH: http://${STACK_NAME}_backend:8080/${SITE_ID}
     networks:

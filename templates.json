@@ -173,6 +173,30 @@
           "label": "Internal network MTU",
           "description": "MTU for the internal overlay network. Lower it if running across VXLAN-encapsulated networks.",
           "default": "1450"
+        },
+        {
+          "name": "FRONTEND_COMMAND",
+          "label": "Frontend launch command",
+          "description": "Command passed to the frontend image's docker-entrypoint.sh after the env-config wrapper sources /run/configs/frontend.env. Default suits upstream Volto images. Override for non-upstream images with a different CMD (e.g. older Volto using 'yarn start:prod').",
+          "default": "pnpm start"
+        },
+        {
+          "name": "BACKEND_COMMAND",
+          "label": "Backend launch command",
+          "description": "Command passed to the backend image's /app/docker-entrypoint.sh after the env-config wrapper sources /run/configs/backend.env. Default 'start' fires the upstream Plone backend launch path. Override only for images whose CMD differs from upstream.",
+          "default": "start"
+        },
+        {
+          "name": "BACKEND_ENV_VERSION",
+          "label": "Backend env config version",
+          "description": "Version suffix of the Swarm config providing extra env vars to the backend (mounted at /run/configs/backend.env and sourced before launch). The compose mounts ${STACK_PREFIX}_backend_env_${BACKEND_ENV_VERSION} — the config object must already exist in the cluster. Bump to roll new values.",
+          "default": "v0"
+        },
+        {
+          "name": "FRONTEND_ENV_VERSION",
+          "label": "Frontend env config version",
+          "description": "Version suffix of the Swarm config providing extra env vars to the frontend (mounted at /run/configs/frontend.env and sourced before launch). The compose mounts ${STACK_PREFIX}_frontend_env_${FRONTEND_ENV_VERSION} — the config object must already exist in the cluster. Bump to roll new values.",
+          "default": "v0"
         }
       ]
     },

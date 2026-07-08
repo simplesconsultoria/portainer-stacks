@@ -3,10 +3,31 @@ services:
 
   frontend:
     image: ${IMAGE_FRONTEND}:${IMAGE_FRONTEND_TAG:-latest}
+    # The wrapper sources the Swarm config, then exec's the image's
+    # native ENTRYPOINT (`docker-entrypoint.sh`) so its init logic runs
+    # unchanged. The original CMD is reasserted via `command:` below
+    # — defining `entrypoint:` resets CMD, so we put it back explicitly.
+    # Override `FRONTEND_COMMAND` for non-upstream images that don't use
+    # `pnpm start` (e.g. older Volto using `yarn start:prod`).
+    #
+    # CAVEAT: RAZZLE_* variables are build-time — Volto inlines them into
+    # the browser bundle during `pnpm build`. Sourcing them here only
+    # affects SSR-side (Node) reads at runtime; changing e.g.
+    # RAZZLE_MATOMO_* via the env config will NOT reach the client bundle
+    # without a rebuild of the frontend image.
+    entrypoint:
+      - /bin/sh
+      - -c
+      - 'set -a; [ -f /run/configs/frontend.env ] && . /run/configs/frontend.env; set +a; exec docker-entrypoint.sh "$$@"'
+      - sh-wrapper
+    command: ${FRONTEND_COMMAND:-pnpm start}
     environment:
       RAZZLE_INTERNAL_API_PATH: http://${STACK_NAME}_backend:8080/${SITE_ID}
     networks:
       - public
+    configs:
+      - source: frontend_env
+        target: /run/configs/frontend.env
     deploy:
       replicas: ${STACK_FRONTEND_REPLICAS:-1}
       placement:
@@ -38,6 +59,19 @@ services:
 
   backend:
     image: ${IMAGE_BACKEND}:${IMAGE_BACKEND_TAG:-latest}
+    # The wrapper sources the Swarm config, then exec's the image's
+    # native ENTRYPOINT (`/app/docker-entrypoint.sh`) so its init logic
+    # runs unchanged — the entrypoint's `if [ "$1" = "start" ]` branch
+    # still fires because we re-pass the original CMD via `command:`
+    # (defining `entrypoint:` resets CMD, so we put it back explicitly).
+    # Override `BACKEND_COMMAND` only for images whose CMD differs from
+    # upstream Plone's `start`.
+    entrypoint:
+      - /bin/sh
+      - -c
+      - 'set -a; [ -f /run/configs/backend.env ] && . /run/configs/backend.env; set +a; exec /app/docker-entrypoint.sh "$$@"'
+      - sh-wrapper
+    command: ${BACKEND_COMMAND:-start}
     environment:
       # Database connection
       ZEO_ADDRESS: ${STACK_NAME}_db:${ZEO_PORT:-8100}
@@ -48,6 +82,9 @@ services:
     networks:
       - public
       - nw-internal
+    configs:
+      - source: backend_env
+        target: /run/configs/backend.env
     deploy:
       replicas: ${STACK_BACKEND_REPLICAS:-1}
       placement:
@@ -126,3 +163,11 @@ networks:
     driver: overlay
     driver_opts:
       com.docker.network.driver.mtu: ${NETWORK_MTU:-1450}
+
+configs:
+  backend_env:
+    external: true
+    name: ${STACK_PREFIX}_backend_env_${BACKEND_ENV_VERSION:-v0}
+  frontend_env:
+    external: true
+    name: ${STACK_PREFIX}_frontend_env_${FRONTEND_ENV_VERSION:-v0}

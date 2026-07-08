@@ -37,10 +37,21 @@ sensible default; the deployment will fail or misbehave without it.
 |-----------------------|:--------:|--------------------|----------------------------------------------------------------------------|
 | `IMAGE_FRONTEND`      | yes      | —                  | Volto frontend image (e.g. `plone/plone-frontend` or a per-tenant build).  |
 | `IMAGE_FRONTEND_TAG`  | no       | `latest`           | Frontend image tag. **Pin in production** — `latest` is forbidden by repo policy. |
+| `FRONTEND_COMMAND`    | no       | `pnpm start`       | Command passed to the frontend image's `docker-entrypoint.sh`. Override for non-upstream Volto images (e.g. older Volto using `yarn start:prod`). |
 | `IMAGE_BACKEND`       | yes      | —                  | Plone backend image (e.g. `plone/plone-backend`).                          |
 | `IMAGE_BACKEND_TAG`   | no       | `latest`           | Backend image tag. **Pin in production**.                                  |
+| `BACKEND_COMMAND`     | no       | `start`            | Command passed to the backend image's `/app/docker-entrypoint.sh`. Override only for images whose CMD differs from upstream Plone. |
 | `IMAGE_DB`            | no       | `plone/plone-zeo`  | ZEO server image. Override only for a custom-built ZEO.                    |
 | `IMAGE_DB_TAG`        | no       | `6.0.0`            | ZEO image tag. Bump together with backend ZODB compatibility.              |
+
+> **Why these `_COMMAND` vars exist.** The `backend` and `frontend`
+> services use an `entrypoint:` wrapper to source a Swarm-config `.env`
+> file before launching, then `exec` the image's native entrypoint.
+> Defining `entrypoint:` resets the image's `CMD`, so the original
+> command must be reasserted via `command:` in the compose. The
+> `*_COMMAND` vars expose that override to the operator, defaulting to
+> upstream Plone / Volto. The `db` (ZEO) service takes no env config and
+> keeps its stock entrypoint untouched.
 
 ### ZEO
 
@@ -71,6 +82,49 @@ sensible default; the deployment will fail or misbehave without it.
 | Variable        | Required | Default | Description                                                  |
 |-----------------|:--------:|---------|--------------------------------------------------------------|
 | `NETWORK_MTU`   | no       | `1450`  | MTU for the internal overlay network. Lower it if running across VXLAN-encapsulated networks (e.g. some cloud overlays). |
+
+### Service env overrides (Swarm configs)
+
+The `backend` and `frontend` entrypoints each source a `*.env` file
+mounted from a Swarm **config** before launching, so config objects can
+inject arbitrary environment variables (Plone tunables, ZEO client
+settings, frontend runtime config, etc.) without editing the compose
+file. The config objects **must exist in the cluster before
+deployment** — Swarm refuses to deploy a stack referencing a missing
+external config. Configs are immutable, so rotation means creating a new
+object with the next version suffix and bumping the corresponding
+`*_ENV_VERSION` var.
+
+| Variable                | Required | Default | Description                                                                                                                                                              |
+|-------------------------|:--------:|---------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `BACKEND_ENV_VERSION`   | no       | `v0`    | Version suffix of the backend Swarm config. The compose references `${STACK_PREFIX}_backend_env_${BACKEND_ENV_VERSION}`, mounted at `/run/configs/backend.env`.          |
+| `FRONTEND_ENV_VERSION`  | no       | `v0`    | Version suffix of the frontend Swarm config. The compose references `${STACK_PREFIX}_frontend_env_${FRONTEND_ENV_VERSION}`, mounted at `/run/configs/frontend.env`.      |
+
+Create the configs in Portainer (**Configs → Add config**) or via CLI:
+
+```bash
+docker config create acme-prod_backend_env_v0 ./backend.env
+docker config create acme-prod_frontend_env_v0 ./frontend.env
+```
+
+Where each file is plain `KEY=value` lines (shell-sourceable), e.g.:
+
+```bash
+# backend.env
+ZOPE_THREADS=4
+```
+
+If a mounted file ends up empty, the wrapper silently no-ops and the
+service starts normally — useful for deploying with a placeholder `v0`
+config you fill in later.
+
+> **`RAZZLE_*` frontend vars are build-time, not runtime.** Volto inlines
+> every `RAZZLE_*` variable into the browser bundle during `pnpm build`.
+> Sourcing them through `frontend.env` only affects **SSR-side** (Node)
+> reads at runtime — changing e.g. `RAZZLE_MATOMO_*` via the env config
+> will **not** reach the client bundle without rebuilding the frontend
+> image. Use the env config for server-side runtime settings; bake
+> client-facing `RAZZLE_*` values into the image at build time.
 
 ## NFS directory layout
 
@@ -114,4 +168,4 @@ Webhook URLs are sensitive — store them in CI secrets, not in this repo.
   `ZEO_SHARED_BLOB_DIR=on` lets the backend access blobs directly via the
   shared mount, avoiding round-trips through ZEO.
 - **ZEO storage only.** RelStorage + Postgres is not in scope for this
-  template; that would be a separate `plone-relstorage` template.
+  template — use the sibling `plone-relstorage` template for that backend.

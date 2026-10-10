@@ -667,7 +667,7 @@
     {
       "type": 2,
       "title": "Plone Classic (ZEO + NFS)",
-      "description": "Plone Classic UI site (legacy Plone 3.1 - 4.2 images) with a ZEO server and scalable backend, no frontend, served at the root of the hostname through a VHM rule. Persistent data on NFS. Per-instance directories must be pre-created by the matching cluster_playbook playbook.",
+      "description": "Plone Classic UI site (legacy Plone 3.1 - 4.3 images) with a ZEO server and scalable backend, no frontend, served at the root of the hostname through a VHM rule. Persistent data on NFS. Per-instance directories must be pre-created by the matching cluster_playbook playbook.",
       "note": "Single ZEO replica (cannot scale). The backend can scale. Requires <NFS_BASE_DIR>/data created beforehand by cluster_playbook, owned by uid/gid 500.",
       "categories": ["cms", "plone"],
       "platform": "linux",
@@ -710,7 +710,7 @@
         {
           "name": "IMAGE_BACKEND",
           "label": "Backend image",
-          "description": "Legacy Plone image (plone/plone 3.1 - 4.2, or an image built on one). The db service must use the same image.",
+          "description": "Legacy Plone image (plone/plone 3.1 - 4.3, or an image built on one). The db service must use the same image.",
           "default": "plone/plone"
         },
         {

@@ -44,7 +44,7 @@ templates.json       Portainer App Templates v3 index, served raw to Portainer
 | `plone-zeo-nfs`    | Plone 6 (ZEO storage, backend, Volto) — persistent, NFS-backed             |
 | `plone-demo`       | Plone 6 (backend + Volto) — stateless sandbox, data lost on restart        |
 | `plone-relstorage` | Plone 6 (backend + Volto) — RelStorage against an externally-managed Postgres |
-| `classic-zeo-nfs`  | Plone Classic 3.1 – 4.2 (legacy ZEO server + backend, no frontend) — persistent, NFS-backed |
+| `classic-zeo-nfs`  | Plone Classic 3.1 – 4.3 (legacy ZEO server + backend, no frontend) — persistent, NFS-backed |
 | `classic-demo`     | Plone Classic 1.0 – 4.2 (backend only, no frontend) — stateless; fits archive images that ship their database |
 | `swarm-cronjob`    | `crazymax/swarm-cronjob` — schedule cron jobs on Swarm services via labels |
 

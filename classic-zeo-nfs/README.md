@@ -47,8 +47,9 @@ adds the prefix
 ```
 
 to every request, so `https://${DEPLOY_HOSTNAME}/<path>` reaches `<path>`
-inside the Plone site `${SITE_ID}`. The explicit `:443` is required: without
-a port, Zope 2's VHM keeps the backend's own port (`:8080`) in every link.
+inside the Plone site `${SITE_ID}`. The explicit `:443` pins the port of the
+generated links; without it, Zope takes the port from the request's `Host`
+header, which Traefik forwards without one.
 
 ## Environment variables
 

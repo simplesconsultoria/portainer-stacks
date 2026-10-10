@@ -41,9 +41,11 @@ to every request, so `https://${DEPLOY_HOSTNAME}/<path>` reaches
 `<path>` inside the Plone site `${SITE_ID}` and the site writes its links
 with the public hostname.
 
-The explicit `:443` is required. Without a port, Zope 2's VHM keeps the
-backend's own port, and every link comes out as
-`https://${DEPLOY_HOSTNAME}:8080/…`.
+The explicit `:443` pins the port of the links the site writes. Without
+it, Zope takes the port from the request's `Host` header. Traefik forwards
+the header without a port, so the links come out right either way, but a
+request that does carry one (e.g. straight to the backend on 8080) would
+put that port in every link.
 
 The Zope root (and its ZMI) is not routed. The site's own ZMI is at
 `https://${DEPLOY_HOSTNAME}/manage`.

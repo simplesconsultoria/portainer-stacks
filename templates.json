@@ -574,6 +574,252 @@
           "default": "false"
         }
       ]
+    },
+    {
+      "type": 2,
+      "title": "Plone Classic (Demo)",
+      "description": "Stateless Plone Classic UI site (legacy Plone 1.0 - 4.2 images): a single backend, no frontend, no ZEO, no NFS, served at the root of the hostname through a VHM rule. Data lives inside the container and is lost on restart.",
+      "note": "Storage is ephemeral — every container restart starts again from what the image ships. Fits demos, evaluation, and read-only archive sites whose image carries the database.",
+      "categories": ["cms", "plone"],
+      "platform": "linux",
+      "logo": "https://raw.githubusercontent.com/simplesconsultoria/portainer-stacks/main/classic-demo/logo.png",
+      "repository": {
+        "url": "https://github.com/simplesconsultoria/portainer-stacks",
+        "stackfile": "classic-demo/docker-compose.yml"
+      },
+      "env": [
+        {
+          "name": "STACK_PREFIX",
+          "label": "Traefik resource prefix",
+          "description": "Short, unique prefix used in Traefik service/middleware/router names (e.g. 'classic-acme')."
+        },
+        {
+          "name": "STACK_ENV",
+          "label": "Target environment",
+          "description": "Swarm placement constraint: nodes must have node.labels.env == this value.",
+          "select": [
+            {"text": "staging", "value": "staging"},
+            {"text": "production", "value": "production"}
+          ]
+        },
+        {
+          "name": "SITE_ID",
+          "label": "Plone site id",
+          "description": "Id of the Plone site inside the Zope root (e.g. 'Plone'). The VHM rule serves this site at the root of the hostname.",
+          "default": "Plone"
+        },
+        {
+          "name": "DEPLOY_HOSTNAME",
+          "label": "Public hostname",
+          "description": "Hostname routed by Traefik (e.g. site.example.com). Must already resolve to the cluster."
+        },
+        {
+          "name": "IMAGE_BACKEND",
+          "label": "Backend image",
+          "description": "Legacy Plone image (plone/plone 1.0 - 4.2, or an image built on one, e.g. one that ships its own site and database).",
+          "default": "plone/plone"
+        },
+        {
+          "name": "IMAGE_BACKEND_TAG",
+          "label": "Backend image tag",
+          "description": "Pinned tag. Avoid 'latest' in production.",
+          "default": "3.3-demo"
+        },
+        {
+          "name": "STACK_BACKEND_REPLICAS",
+          "label": "Backend replicas",
+          "description": "Number of backend replicas. Storage is per-container — running >1 replica means each request may hit a different (out-of-sync) copy of the site.",
+          "default": "1"
+        },
+        {
+          "name": "STACK_BACKEND_TYPE",
+          "label": "Backend node type",
+          "description": "Swarm placement constraint: node.labels.type for the backend.",
+          "select": [
+            {"text": "App", "value": "app"},
+            {"text": "Data", "value": "data"}
+          ],
+          "default": "app"
+        },
+        {
+          "name": "CERTRESOLVER",
+          "label": "Traefik cert resolver",
+          "description": "Name of the Traefik certificate resolver to use.",
+          "select": [
+            {"text": "Let's Encrypt TLS", "value": "le-tls"},
+            {"text": "Cloudflare", "value": "le-cloudflare"}
+          ],
+          "default": "le-cloudflare"
+        },
+        {
+          "name": "BACKEND_MIDDLEWARES",
+          "label": "Backend middlewares",
+          "description": "Comma-separated Traefik middlewares applied before the VHM rewrite (which is always appended).",
+          "default": "gzip"
+        },
+        {
+          "name": "ADMIN_PASSWORD",
+          "label": "Zope admin password (optional)",
+          "description": "Sets the Zope root 'admin' password when the container creates or seeds its database. Leave empty to keep the credentials stored in a shipped database."
+        }
+      ]
+    },
+    {
+      "type": 2,
+      "title": "Plone Classic (ZEO + NFS)",
+      "description": "Plone Classic UI site (legacy Plone 3.1 - 4.2 images) with a ZEO server and scalable backend, no frontend, served at the root of the hostname through a VHM rule. Persistent data on NFS. Per-instance directories must be pre-created by the matching cluster_playbook playbook.",
+      "note": "Single ZEO replica (cannot scale). The backend can scale. Requires <NFS_BASE_DIR>/data created beforehand by cluster_playbook, owned by uid/gid 500.",
+      "categories": ["cms", "plone"],
+      "platform": "linux",
+      "logo": "https://raw.githubusercontent.com/simplesconsultoria/portainer-stacks/main/classic-zeo-nfs/logo.png",
+      "repository": {
+        "url": "https://github.com/simplesconsultoria/portainer-stacks",
+        "stackfile": "classic-zeo-nfs/docker-compose.yml"
+      },
+      "env": [
+        {
+          "name": "STACK_NAME",
+          "label": "Stack name (must match the field above)",
+          "description": "Type the same value you used in the stack 'Name' field at the top of this page. Used for internal Swarm DNS (${STACK_NAME}_db)."
+        },
+        {
+          "name": "STACK_PREFIX",
+          "label": "Traefik resource prefix",
+          "description": "Short, unique prefix used in Traefik service/middleware/router names (e.g. 'classic-acme')."
+        },
+        {
+          "name": "STACK_ENV",
+          "label": "Target environment",
+          "description": "Swarm placement constraint: nodes must have node.labels.env == this value.",
+          "select": [
+            {"text": "staging", "value": "staging"},
+            {"text": "production", "value": "production"}
+          ]
+        },
+        {
+          "name": "SITE_ID",
+          "label": "Plone site id",
+          "description": "Id of the Plone site inside the Zope root (e.g. 'Plone'). The VHM rule serves this site at the root of the hostname.",
+          "default": "Plone"
+        },
+        {
+          "name": "DEPLOY_HOSTNAME",
+          "label": "Public hostname",
+          "description": "Hostname routed by Traefik (e.g. site.example.com). Must already resolve to the cluster."
+        },
+        {
+          "name": "IMAGE_BACKEND",
+          "label": "Backend image",
+          "description": "Legacy Plone image (plone/plone 3.1 - 4.2, or an image built on one). The db service must use the same image.",
+          "default": "plone/plone"
+        },
+        {
+          "name": "IMAGE_BACKEND_TAG",
+          "label": "Backend image tag",
+          "description": "Pinned tag. Avoid 'latest' in production.",
+          "default": "3.3.6"
+        },
+        {
+          "name": "BACKEND_ENTRYPOINT",
+          "label": "Backend image entrypoint",
+          "description": "Entrypoint the env-config wrapper exec's after sourcing /run/configs/backend.env. /docker-entrypoint.sh for the plone/plone legacy images; set it when an image built on them ships its own.",
+          "default": "/docker-entrypoint.sh"
+        },
+        {
+          "name": "BACKEND_COMMAND",
+          "label": "Backend launch command",
+          "description": "Command passed to BACKEND_ENTRYPOINT. Default 'start' runs the instance in the foreground.",
+          "default": "start"
+        },
+        {
+          "name": "IMAGE_DB",
+          "label": "ZEO server image",
+          "description": "Same image as the backend: the ZEO server of Zope 2.x is not compatible with plone/plone-zeo. An image that ships a database seeds the NFS share with it on first start.",
+          "default": "plone/plone"
+        },
+        {
+          "name": "IMAGE_DB_TAG",
+          "label": "ZEO server image tag",
+          "description": "Same tag as the backend.",
+          "default": "3.3.6"
+        },
+        {
+          "name": "STACK_BACKEND_REPLICAS",
+          "label": "Backend replicas",
+          "description": "Number of ZEO client replicas.",
+          "default": "1"
+        },
+        {
+          "name": "STACK_BACKEND_TYPE",
+          "label": "Backend node type",
+          "description": "Swarm placement constraint: node.labels.type for the backend.",
+          "select": [
+            {"text": "App", "value": "app"},
+            {"text": "Data", "value": "data"}
+          ],
+          "default": "app"
+        },
+        {
+          "name": "STACK_DB_TYPE",
+          "label": "ZEO node type",
+          "description": "Swarm placement constraint: node.labels.type for ZEO. Pin to a node with reliable NFS access.",
+          "select": [
+            {"text": "App", "value": "app"},
+            {"text": "Data", "value": "data"}
+          ],
+          "default": "data"
+        },
+        {
+          "name": "ZEO_PORT",
+          "label": "ZEO port",
+          "description": "Port the ZEO server listens on.",
+          "default": "8100"
+        },
+        {
+          "name": "ZEO_STORAGE",
+          "label": "ZEO storage name",
+          "description": "ZEO storage identifier. Rarely changed.",
+          "default": "1"
+        },
+        {
+          "name": "NFS_HOST",
+          "label": "NFS server",
+          "description": "NFS server address (IP or DNS name)."
+        },
+        {
+          "name": "NFS_BASE_DIR",
+          "label": "NFS base directory",
+          "description": "Path on the NFS export for this site. Its data/ subdirectory is mounted at /data in the ZEO server and must be pre-created by cluster_playbook, owned by uid/gid 500."
+        },
+        {
+          "name": "CERTRESOLVER",
+          "label": "Traefik cert resolver",
+          "description": "Name of the Traefik certificate resolver to use.",
+          "select": [
+            {"text": "Let's Encrypt TLS", "value": "le-tls"},
+            {"text": "Cloudflare", "value": "le-cloudflare"}
+          ],
+          "default": "le-cloudflare"
+        },
+        {
+          "name": "BACKEND_MIDDLEWARES",
+          "label": "Backend middlewares",
+          "description": "Comma-separated Traefik middlewares applied before the VHM rewrite (which is always appended).",
+          "default": "gzip"
+        },
+        {
+          "name": "BACKEND_ENV_VERSION",
+          "label": "Backend env config version",
+          "description": "Version suffix of the Swarm config providing extra env vars to the backend (mounted at /run/configs/backend.env and sourced before launch). The compose mounts ${STACK_PREFIX}_backend_env_${BACKEND_ENV_VERSION} — the config object must already exist in the cluster. Bump to roll new values.",
+          "default": "v0"
+        },
+        {
+          "name": "NETWORK_MTU",
+          "label": "Internal network MTU",
+          "description": "MTU for the internal overlay network. Lower it if running across VXLAN-encapsulated networks.",
+          "default": "1450"
+        }
+      ]
     }
   ]
 }

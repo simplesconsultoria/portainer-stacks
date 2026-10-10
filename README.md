@@ -44,15 +44,18 @@ templates.json       Portainer App Templates v3 index, served raw to Portainer
 | `plone-zeo-nfs`    | Plone 6 (ZEO storage, backend, Volto) — persistent, NFS-backed             |
 | `plone-demo`       | Plone 6 (backend + Volto) — stateless sandbox, data lost on restart        |
 | `plone-relstorage` | Plone 6 (backend + Volto) — RelStorage against an externally-managed Postgres |
+| `classic-zeo-nfs`  | Plone Classic 3.1 – 4.2 (legacy ZEO server + backend, no frontend) — persistent, NFS-backed |
+| `classic-demo`     | Plone Classic 1.0 – 4.2 (backend only, no frontend) — stateless; fits archive images that ship their database |
 | `swarm-cronjob`    | `crazymax/swarm-cronjob` — schedule cron jobs on Swarm services via labels |
 
 ## Companion: `cluster_playbook`
 
 Templates that need persistent storage (e.g. `plone-zeo-nfs`) rely on the
 `cluster_playbook` Ansible repo to pre-create per-instance NFS directories
-**before** a stack is deployed. Each NFS-backed template here has a
-matching `playbooks/<id>-site.yml` over there. Stateless templates
-(e.g. `plone-demo`) need no companion playbook. See `.claude/CLAUDE.local.md`
+**before** a stack is deployed. Each NFS-backed template here needs a
+matching `playbooks/<id>-site.yml` over there (the one for
+`classic-zeo-nfs` is not written yet). Stateless templates
+(e.g. `plone-demo`, `classic-demo`) need no companion playbook. See `.claude/CLAUDE.local.md`
 for the full split of responsibilities.
 
 ## Adding a new template

@@ -1,0 +1,116 @@
+---
+services:
+
+  backend:
+    image: ${IMAGE_BACKEND}:${IMAGE_BACKEND_TAG:-latest}
+    # The wrapper sources the Swarm config, then exec's the image's own
+    # entrypoint so its init logic (ZEO client configuration, admin user)
+    # runs unchanged. Defining `entrypoint:` resets the image CMD, so it is
+    # passed back via `command:`. The legacy plone/plone images (1.0 - 4.2)
+    # use /docker-entrypoint.sh; images built on top of them may ship their
+    # own (set BACKEND_ENTRYPOINT accordingly).
+    entrypoint:
+      - /bin/sh
+      - -c
+      - 'set -a; [ -f /run/configs/backend.env ] && . /run/configs/backend.env; set +a; exec ${BACKEND_ENTRYPOINT:-/docker-entrypoint.sh} "$$@"'
+      - sh-wrapper
+    command: ${BACKEND_COMMAND:-start}
+    environment:
+      # Setting ZEO_ADDRESS is what turns the image into a ZEO client.
+      ZEO_ADDRESS: ${STACK_NAME}_db:${ZEO_PORT:-8100}
+      ZEO_STORAGE: ${ZEO_STORAGE:-1}
+    networks:
+      - public
+      - nw-internal
+    configs:
+      - source: backend_env
+        target: /run/configs/backend.env
+    deploy:
+      replicas: ${STACK_BACKEND_REPLICAS:-1}
+      placement:
+        constraints:
+          - node.labels.type == ${STACK_BACKEND_TYPE:-app}
+          - node.labels.env == ${STACK_ENV}
+      update_config:
+        parallelism: 1
+        delay: 5s
+        order: start-first
+      labels:
+        - traefik.enable=true
+        - traefik.docker.network=public
+        - traefik.constraint-label=public
+        # Service
+        - traefik.http.services.svc-${STACK_PREFIX}-backend.loadbalancer.server.port=8080
+
+        # Middlewares
+        ## VHM: serve the Plone site ${SITE_ID} at the root of the host.
+        ## The explicit :443 is required: without a port, Zope 2.x's Virtual
+        ## Host Monster keeps the backend's own port (8080) in every link.
+        - traefik.http.middlewares.mw-${STACK_PREFIX}-backend-vhm.addprefix.prefix=/VirtualHostBase/https/${DEPLOY_HOSTNAME}:443/${SITE_ID}/VirtualHostRoot
+
+        # Routers
+        ## External /
+        - traefik.http.routers.rt-${STACK_PREFIX}-backend.rule=Host(`${DEPLOY_HOSTNAME}`)
+        - traefik.http.routers.rt-${STACK_PREFIX}-backend.entrypoints=https
+        - traefik.http.routers.rt-${STACK_PREFIX}-backend.tls=true
+        - traefik.http.routers.rt-${STACK_PREFIX}-backend.tls.certresolver=${CERTRESOLVER:-le-cloudflare}
+        - traefik.http.routers.rt-${STACK_PREFIX}-backend.service=svc-${STACK_PREFIX}-backend
+        - traefik.http.routers.rt-${STACK_PREFIX}-backend.middlewares=${BACKEND_MIDDLEWARES:-gzip},mw-${STACK_PREFIX}-backend-vhm
+
+  db:
+    # The ZEO server runs from a legacy Plone image too: the ZEO protocol of
+    # Zope 2.x (ZODB 3.x) is not compatible with plone/plone-zeo (ZODB 5).
+    # Use the same image as the backend. It goes through the image's own
+    # entrypoint, which lays out /data and — for images that ship a
+    # database, like the -demo variants — seeds /data/filestorage/Data.fs on
+    # the first start against an empty share.
+    image: ${IMAGE_DB}:${IMAGE_DB_TAG:-latest}
+    command:
+      - /bin/sh
+      - -c
+      - 'exec "$$INSTANCE_HOME/bin/zopepy" -c "import sys, ZEO.runzeo; sys.argv = [\"runzeo\", \"-a\", \"0.0.0.0:${ZEO_PORT:-8100}\", \"-f\", \"/data/filestorage/Data.fs\"]; ZEO.runzeo.main()"'
+    # The image's own healthcheck probes HTTP on 8080, which a ZEO server
+    # never answers; Swarm would kill the task as unhealthy.
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - '"$$PYTHON" -c "import socket; s = socket.socket(); s.connect((\"127.0.0.1\", ${ZEO_PORT:-8100}))"'
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 120s
+    deploy:
+      replicas: 1
+      update_config:
+        parallelism: 1
+        delay: 1s
+        order: stop-first
+      placement:
+        constraints:
+          - node.labels.type == ${STACK_DB_TYPE:-data}
+          - node.labels.env == ${STACK_ENV}
+    volumes:
+      - vol-site-data:/data
+    networks:
+      - nw-internal
+
+volumes:
+  vol-site-data:
+    driver: local
+    driver_opts:
+      type: nfs
+      o: "addr=${NFS_HOST},rw,sync,hard,nfsvers=4"
+      device: ":${NFS_BASE_DIR}/data"
+
+networks:
+  public:
+    external: true
+  nw-internal:
+    driver: overlay
+    driver_opts:
+      com.docker.network.driver.mtu: ${NETWORK_MTU:-1450}
+
+configs:
+  backend_env:
+    external: true
+    name: ${STACK_PREFIX}_backend_env_${BACKEND_ENV_VERSION:-v0}

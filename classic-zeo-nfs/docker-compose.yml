@@ -6,7 +6,7 @@ services:
     # The wrapper sources the Swarm config, then exec's the image's own
     # entrypoint so its init logic (ZEO client configuration, admin user)
     # runs unchanged. Defining `entrypoint:` resets the image CMD, so it is
-    # passed back via `command:`. The legacy plone/plone images (1.0 - 4.2)
+    # passed back via `command:`. The legacy plone/plone images (1.0 - 4.3)
     # use /docker-entrypoint.sh; images built on top of them may ship their
     # own (set BACKEND_ENTRYPOINT accordingly).
     entrypoint:
@@ -65,17 +65,24 @@ services:
     # entrypoint, which lays out /data and — for images that ship a
     # database, like the -demo variants — seeds /data/filestorage/Data.fs on
     # the first start against an empty share.
+    # The 3.1 - 4.2 images define INSTANCE_HOME and run ZEO.runzeo through
+    # their zopepy. The 4.3 images define no INSTANCE_HOME; they run the
+    # buildout's runzeo in the foreground as the plone user, with
+    # /data/blobstorage on the same share and the log in /data/zeoserver.
+    # Their /data layout is baked into the image, so it is created on an
+    # empty share first, as plone (works on a root_squash export).
     image: ${IMAGE_DB}:${IMAGE_DB_TAG:-latest}
     command:
       - /bin/sh
       - -c
-      - 'exec "$$INSTANCE_HOME/bin/zopepy" -c "import sys, ZEO.runzeo; sys.argv = [\"runzeo\", \"-a\", \"0.0.0.0:${ZEO_PORT:-8100}\", \"-f\", \"/data/filestorage/Data.fs\"]; ZEO.runzeo.main()"'
+      - 'if [ -n "$$INSTANCE_HOME" ]; then exec "$$INSTANCE_HOME/bin/zopepy" -c "import sys, ZEO.runzeo; sys.argv = [\"runzeo\", \"-a\", \"0.0.0.0:${ZEO_PORT:-8100}\", \"-f\", \"/data/filestorage/Data.fs\"]; ZEO.runzeo.main()"; else gosu plone mkdir -p /data/filestorage /data/blobstorage /data/zeoserver && exec gosu plone /plone/instance/parts/zeo/bin/runzeo -a 0.0.0.0:${ZEO_PORT:-8100}; fi'
     # The image's own healthcheck probes HTTP on 8080, which a ZEO server
-    # never answers; Swarm would kill the task as unhealthy.
+    # never answers; Swarm would kill the task as unhealthy. The 4.3 images
+    # define no PYTHON and use the python on PATH.
     healthcheck:
       test:
         - CMD-SHELL
-        - '"$$PYTHON" -c "import socket; s = socket.socket(); s.connect((\"127.0.0.1\", ${ZEO_PORT:-8100}))"'
+        - '"$${PYTHON:-python}" -c "import socket; s = socket.socket(); s.connect((\"127.0.0.1\", ${ZEO_PORT:-8100}))"'
       interval: 10s
       timeout: 5s
       retries: 6

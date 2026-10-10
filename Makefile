@@ -23,11 +23,13 @@ lint-yaml:  ## yamllint each template's docker-compose.yml
 	done
 
 check-env:  ## Cross-check templates.json env entries vs $${VAR} references in each compose
+	@# `$$$$` is compose's escape for a literal `$$`, expanded by the container's
+	@# shell, not by compose: drop it before looking for compose variables.
 	@status=0; \
 	for tpl in $(TEMPLATES); do \
 		echo "==> $$tpl"; \
 		stackfile="$$tpl/docker-compose.yml"; \
-		compose_vars=$$(grep -oE '\$$\{[A-Z_]+(:-[^}]*)?\}' $$stackfile | sed 's/\$${//;s/}//;s/:-.*//' | sort -u); \
+		compose_vars=$$(sed 's/\$$\$$//g' $$stackfile | grep -oE '\$$\{[A-Z_]+(:-[^}]*)?\}' | sed 's/\$${//;s/}//;s/:-.*//' | sort -u); \
 		json_vars=$$(jq -r --arg f "$$stackfile" '.templates[] | select(.repository.stackfile == $$f) | .env[].name' templates.json | sort -u); \
 		missing=$$(comm -23 <(echo "$$compose_vars") <(echo "$$json_vars")); \
 		extra=$$(comm -13 <(echo "$$compose_vars") <(echo "$$json_vars")); \

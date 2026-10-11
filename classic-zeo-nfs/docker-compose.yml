@@ -65,8 +65,12 @@ services:
     # entrypoint, which lays out /data and — for images that ship a
     # database, like the -demo variants — seeds /data/filestorage/Data.fs on
     # the first start against an empty share.
-    # The 3.1 - 4.2 images define INSTANCE_HOME and run ZEO.runzeo through
-    # their zopepy. The 4.3 images define no INSTANCE_HOME; they run the
+    # A site image whose buildout has a [zeo] part under /app/instance (e.g. a
+    # 4.0 - 4.2 site with blobs) runs that part's runzeo, whose zeo.conf
+    # carries the blob-dir; such images run as plone already.
+    # The other 3.1 - 4.2 images define INSTANCE_HOME and run ZEO.runzeo
+    # through their zopepy, with no blobs. The 4.3 images define no
+    # INSTANCE_HOME; they run the
     # buildout's runzeo in the foreground as the plone user, with
     # /data/blobstorage on the same share and the log in /data/zeoserver.
     # Their /data layout is baked into the image, so it is created on an
@@ -75,7 +79,7 @@ services:
     command:
       - /bin/sh
       - -c
-      - 'if [ -n "$$INSTANCE_HOME" ]; then exec "$$INSTANCE_HOME/bin/zopepy" -c "import sys, ZEO.runzeo; sys.argv = [\"runzeo\", \"-a\", \"0.0.0.0:${ZEO_PORT:-8100}\", \"-f\", \"/data/filestorage/Data.fs\"]; ZEO.runzeo.main()"; else gosu plone mkdir -p /data/filestorage /data/blobstorage /data/zeoserver && exec gosu plone /plone/instance/parts/zeo/bin/runzeo -a 0.0.0.0:${ZEO_PORT:-8100}; fi'
+      - 'if [ -x /app/instance/parts/zeo/bin/runzeo ]; then mkdir -p /data/filestorage /data/blobstorage /data/log && exec /app/instance/parts/zeo/bin/runzeo -a 0.0.0.0:${ZEO_PORT:-8100}; elif [ -n "$$INSTANCE_HOME" ]; then exec "$$INSTANCE_HOME/bin/zopepy" -c "import sys, ZEO.runzeo; sys.argv = [\"runzeo\", \"-a\", \"0.0.0.0:${ZEO_PORT:-8100}\", \"-f\", \"/data/filestorage/Data.fs\"]; ZEO.runzeo.main()"; else gosu plone mkdir -p /data/filestorage /data/blobstorage /data/zeoserver && exec gosu plone /plone/instance/parts/zeo/bin/runzeo -a 0.0.0.0:${ZEO_PORT:-8100}; fi'
     # The image's own healthcheck probes HTTP on 8080, which a ZEO server
     # never answers; Swarm would kill the task as unhealthy. The 4.3 images
     # define no PYTHON and use the python on PATH.

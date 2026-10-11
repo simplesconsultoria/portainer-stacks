@@ -23,10 +23,16 @@ NFS. For a throwaway or read-only site use
 
 `plone/plone-zeo` is ZODB 5, and the ZEO protocol of Zope 2 / ZODB 3 is not
 compatible with it. The `db` service therefore runs the ZEO server from
-the legacy image itself, and picks how by `INSTANCE_HOME`:
+a legacy image too, and picks how in this order:
 
-- **3.1 – 4.2** images define it: `db` runs `ZEO.runzeo` through
-  `$INSTANCE_HOME/bin/zopepy`, on `/data/filestorage/Data.fs`, with no blobs.
+- **Site images with a `[zeo]` part** (`/app/instance/parts/zeo/bin/runzeo`
+  exists), e.g. a 4.0 – 4.2 site with blobs: `db` creates
+  `/data/{filestorage,blobstorage,log}` and runs that `runzeo` with
+  `-a 0.0.0.0:${ZEO_PORT}`. Its own `zeo.conf` sets the storage, the
+  `blob-dir` and the logs. Such an image runs as `plone` already.
+- **Other 3.1 – 4.2** images define `INSTANCE_HOME`: `db` runs `ZEO.runzeo`
+  through `$INSTANCE_HOME/bin/zopepy`, on `/data/filestorage/Data.fs`, with
+  no blobs.
 - **4.3** images do not: `db` runs the buildout's own
   `/plone/instance/parts/zeo/bin/runzeo` in the foreground as `plone`, with
   `-a 0.0.0.0:${ZEO_PORT}`. Its configuration keeps blobs in
@@ -34,9 +40,10 @@ the legacy image itself, and picks how by `INSTANCE_HOME`:
   share. These images bake the `/data` layout into the image instead of
   creating it at start, so `db` creates it as `plone` first.
 
-Either way, use the **same image and tag** for `db` and `backend`. The 4.3
-backend needs no blob mount: it is not a shared-blob client, and receives
-blobs from ZEO over the network.
+Use the **same image and tag** for `db` and `backend`, or the site's own
+ZEO image built from the same buildout. A backend with blobs needs no blob
+mount: it is not a shared-blob client, and receives blobs from ZEO over
+the network into a local cache.
 
 The command goes through the image's own entrypoint, which lays out `/data`
 first. An image that ships a database (the `-demo` variants, or a site
@@ -171,8 +178,13 @@ Webhook URLs are sensitive — store them in CI secrets, not in this repo.
 - **ZEO does not scale.** Only the backend does.
 - **Buildout era only (3.1 – 4.3).** The tarball-era images (1.0 – 3.0)
   start ZEO differently. Use `classic-demo` for those.
-- **Verified with Plone 3.3 and 4.3.** Plone 3.3 has no blobs; with 4.3,
-  blobs live in `/data/blobstorage` on the share. Plone 4.0 – 4.2 sites
-  with blob content still run ZEO without a blob directory: not worked
-  out in this template yet.
+- **Verified with Plone 3.1, 3.3, 4.2 and 4.3.** Plone 3.x has no blobs.
+  With 4.3, and with a 4.0 – 4.2 site image that ships a `[zeo]` part,
+  blobs live in `/data/blobstorage` on the share. A stock 4.0 – 4.2 image
+  with blob content still runs ZEO without a blob directory.
+- **Placing existing data.** `blobstorage/` must hold `.layout` and the
+  `0x..` directories directly: an `rsync` without a trailing slash leaves
+  `blobstorage/blobstorage/`, which ZODB sees as empty. And ZODB 3.10
+  empties the blob directory when it creates a new `Data.fs`, so never
+  start `db` on a share that holds blobs but no `filestorage/Data.fs`.
 - **`linux/amd64` only.** The legacy images exist for no other platform.

@@ -43,7 +43,14 @@ Before deploying, the operator must have:
    when they match, just set both to the same value.
 3. Network access from the Swarm `app` nodes to the Postgres host on
    the configured port.
-4. The role must have privileges to create the RelStorage schema on
+4. The `databases` overlay network (external, attachable). The backend
+   joins it alongside `public`, so `DB_HOST` can be a Swarm service on
+   it, such as `postgres_postgres` for the PostgreSQL stack that
+   `cluster_playbook` runs on the database node (which also creates the
+   network, through its `mysql` stack). A server outside the Swarm, such
+   as a managed cluster, is still reached the usual way; the network
+   only has to exist.
+5. The role must have privileges to create the RelStorage schema on
    first boot (or the schema must be pre-created — see RelStorage docs).
 
 ## Environment variables
@@ -124,7 +131,7 @@ updates during the wrapper's boot path.
 
 | Variable        | Required | Default | Description                                                                                          |
 |-----------------|:--------:|---------|------------------------------------------------------------------------------------------------------|
-| `DB_HOST`       | yes      | —       | Postgres host reachable from the Swarm `app` nodes. May be a DNS name or IP.                         |
+| `DB_HOST`       | yes      | —       | Postgres host reachable from the Swarm `app` nodes. May be a DNS name, an IP, or a service on the `databases` network. |
 | `DB_PORT`       | no       | `5432`  | Postgres port.                                                                                       |
 | `DB_NAME`       | yes      | —       | Postgres database name (`dbname` in the RelStorage DSN).                                             |
 | `DB_USERNAME`   | yes      | —       | Postgres role used to connect (`user` in the RelStorage DSN). Often equal to `${DB_NAME}` but separable for managed Postgres setups. |

@@ -91,6 +91,10 @@ services:
       RELSTORAGE_DSN: "dbname='${DB_NAME}' user='${DB_USERNAME}' host='${DB_HOST}' password='${DB_PASSWORD}' port='${DB_PORT}'"
     networks:
       - public
+      # Shared with the cluster's database servers, so DB_HOST can be a
+      # service on it (e.g. postgres_postgres). Traefik keeps routing over
+      # `public` (traefik.docker.network below).
+      - databases
     configs:
       - source: backend_env
         target: /run/configs/backend.env
@@ -136,6 +140,8 @@ services:
 
 networks:
   public:
+    external: true
+  databases:
     external: true
 
 configs:

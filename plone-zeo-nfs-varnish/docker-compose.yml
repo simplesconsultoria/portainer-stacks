@@ -1,0 +1,238 @@
+---
+services:
+
+  varnish:
+    image: ${IMAGE_VARNISH}:${IMAGE_VARNISH_TAG:-latest}
+    # Extra varnishd arguments. The official varnish image's entrypoint
+    # prepends `varnishd -F ...` when the first argument starts with `-`,
+    # so `command:` carries only the `-p` tunables. The defaults raise the
+    # workspaces for Plone's large headers and cookies.
+    command: ${VARNISH_COMMAND:--p nuke_limit=2000 -p workspace_client=192k -p workspace_backend=192k}
+    environment:
+      # Cache size, read by the official varnish image's entrypoint.
+      VARNISH_SIZE: ${VARNISH_SIZE:-100M}
+    # `public`: Traefik reaches Varnish here, and the VCL's backend
+    # `traefik:80` is resolved here.
+    # `nw-internal`: the purger reaches Varnish here.
+    networks:
+      - public
+      - nw-internal
+    deploy:
+      replicas: ${STACK_VARNISH_REPLICAS:-1}
+      placement:
+        constraints:
+          - node.labels.type == ${STACK_VARNISH_TYPE:-app}
+          - node.labels.env == ${STACK_ENV}
+      update_config:
+        parallelism: 1
+        delay: 5s
+        order: start-first
+      labels:
+        - traefik.enable=true
+        - traefik.docker.network=public
+        - traefik.constraint-label=public
+        # Service
+        - traefik.http.services.svc-${STACK_PREFIX}-varnish.loadbalancer.server.port=80
+        # Middlewares
+        ## Rate limit on the public /++api++ route, per client IP
+        - traefik.http.middlewares.mw-${STACK_PREFIX}-ratelimit.ratelimit.average=${API_RATELIMIT_AVERAGE:-20}
+        - traefik.http.middlewares.mw-${STACK_PREFIX}-ratelimit.ratelimit.burst=${API_RATELIMIT_BURST:-50}
+        - traefik.http.middlewares.mw-${STACK_PREFIX}-ratelimit.ratelimit.sourcecriterion.requestheadername=x-real-ip
+        # Routers
+        # The public routers never match PURGE or BAN. Traefik reaches
+        # Varnish from an overlay (10.x) address, which a VCL purge ACL
+        # covering the overlay ranges would trust, so an external PURGE
+        # must not get that far. It gets a 404 from Traefik instead.
+        ## Public / (served by Varnish)
+        - traefik.http.routers.rt-${STACK_PREFIX}-varnish.rule=Host(`${DEPLOY_HOSTNAME}`) && !Method(`PURGE`, `BAN`)
+        - traefik.http.routers.rt-${STACK_PREFIX}-varnish.entrypoints=https
+        - traefik.http.routers.rt-${STACK_PREFIX}-varnish.tls=true
+        - traefik.http.routers.rt-${STACK_PREFIX}-varnish.tls.certresolver=${CERTRESOLVER:-le-cloudflare}
+        - traefik.http.routers.rt-${STACK_PREFIX}-varnish.service=svc-${STACK_PREFIX}-varnish
+        - traefik.http.routers.rt-${STACK_PREFIX}-varnish.middlewares=${FRONTEND_MIDDLEWARES:-gzip}
+        ## Public /++api++ (served by Varnish, rate limited)
+        - traefik.http.routers.rt-${STACK_PREFIX}-varnish-api.rule=Host(`${DEPLOY_HOSTNAME}`) && PathPrefix(`/++api++`) && !Method(`PURGE`, `BAN`)
+        - traefik.http.routers.rt-${STACK_PREFIX}-varnish-api.entrypoints=https
+        - traefik.http.routers.rt-${STACK_PREFIX}-varnish-api.tls=true
+        - traefik.http.routers.rt-${STACK_PREFIX}-varnish-api.service=svc-${STACK_PREFIX}-varnish
+        - traefik.http.routers.rt-${STACK_PREFIX}-varnish-api.middlewares=gzip,mw-${STACK_PREFIX}-ratelimit
+
+  purger:
+    image: ${IMAGE_PURGER:-ghcr.io/kitconcept/cluster-purger}:${IMAGE_PURGER_TAG:-latest}
+    environment:
+      # Swarm mode resolves `tasks.<PURGER_SERVICE_NAME>` and sends each
+      # PURGE to every Varnish task. The stack-scoped name keeps another
+      # stack's Varnish out of that list.
+      PURGER_MODE: swarm
+      PURGER_SERVICE_NAME: ${STACK_NAME}_varnish
+      PURGER_SERVICE_PORT: 80
+      PURGER_PUBLIC_SITES: "['${DEPLOY_HOSTNAME}']"
+    # Internal only: the backend reaches it as ${STACK_NAME}_purger, and
+    # it reaches Varnish over the same network.
+    networks:
+      - nw-internal
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.labels.type == ${STACK_VARNISH_TYPE:-app}
+          - node.labels.env == ${STACK_ENV}
+      update_config:
+        parallelism: 1
+        delay: 5s
+        order: start-first
+
+  frontend:
+    image: ${IMAGE_FRONTEND}:${IMAGE_FRONTEND_TAG:-latest}
+    # See plone-zeo-nfs: the wrapper sources the Swarm config, then exec's
+    # `${FRONTEND_ENTRYPOINT:-pnpm}` with the start command from `command:`.
+    entrypoint:
+      - /bin/sh
+      - -c
+      - 'set -a; [ -f /run/configs/frontend.env ] && . /run/configs/frontend.env; set +a; exec ${FRONTEND_ENTRYPOINT:-pnpm} "$$@"'
+      - sh-wrapper
+    command: ${FRONTEND_COMMAND:-start:prod}
+    environment:
+      RAZZLE_INTERNAL_API_PATH: http://${STACK_NAME}_backend:8080/${SITE_ID}
+    networks:
+      - public
+      - nw-internal
+    configs:
+      - source: frontend_env
+        target: /run/configs/frontend.env
+    deploy:
+      replicas: ${STACK_FRONTEND_REPLICAS:-1}
+      placement:
+        constraints:
+          - node.labels.type == ${STACK_FRONTEND_TYPE:-app}
+          - node.labels.env == ${STACK_ENV}
+      update_config:
+        parallelism: 1
+        delay: 5s
+        order: start-first
+      labels:
+        - traefik.enable=true
+        - traefik.docker.network=public
+        - traefik.constraint-label=public
+        # Service
+        - traefik.http.services.svc-${STACK_PREFIX}-frontend.loadbalancer.server.port=3000
+        # Middlewares
+        ## Basic Authentication (stack-wide; reuse via mw-${STACK_PREFIX}-auth)
+        - traefik.http.middlewares.mw-${STACK_PREFIX}-auth.basicauth.removeheader=true
+        - traefik.http.middlewares.mw-${STACK_PREFIX}-auth.basicauth.users=${BASIC_AUTH_USER}:${BASIC_AUTH_PASSWORD_HASH}
+        # Routers
+        ## Internal / : only Varnish's cache misses, which carry
+        ## X-Varnish-Routed: 1 and arrive on the plain `http` entrypoint.
+        - traefik.http.routers.rt-${STACK_PREFIX}-frontend.rule=Host(`${DEPLOY_HOSTNAME}`) && Headers(`X-Varnish-Routed`, `1`)
+        - traefik.http.routers.rt-${STACK_PREFIX}-frontend.entrypoints=http
+        - traefik.http.routers.rt-${STACK_PREFIX}-frontend.service=svc-${STACK_PREFIX}-frontend
+
+  backend:
+    image: ${IMAGE_BACKEND}:${IMAGE_BACKEND_TAG:-latest}
+    # See plone-zeo-nfs: the wrapper sources the Swarm config, then exec's
+    # the image's native `/app/docker-entrypoint.sh` with `command:`.
+    entrypoint:
+      - /bin/sh
+      - -c
+      - 'set -a; [ -f /run/configs/backend.env ] && . /run/configs/backend.env; set +a; exec /app/docker-entrypoint.sh "$$@"'
+      - sh-wrapper
+    command: ${BACKEND_COMMAND:-start}
+    environment:
+      # Database connection
+      ZEO_ADDRESS: ${STACK_NAME}_db:${ZEO_PORT:-8100}
+      ZEO_STORAGE: ${ZEO_STORAGE:-1}
+      ZEO_SHARED_BLOB_DIR: "on"
+    volumes:
+      - vol-site-blob:/data/blobstorage
+    networks:
+      - public
+      - nw-internal
+    configs:
+      - source: backend_env
+        target: /run/configs/backend.env
+    deploy:
+      replicas: ${STACK_BACKEND_REPLICAS:-1}
+      placement:
+        constraints:
+          - node.labels.type == ${STACK_BACKEND_TYPE:-app}
+          - node.labels.env == ${STACK_ENV}
+      update_config:
+        parallelism: 1
+        delay: 5s
+        order: start-first
+      labels:
+        - traefik.enable=true
+        - traefik.docker.network=public
+        - traefik.constraint-label=public
+        # Services
+        - traefik.http.services.svc-${STACK_PREFIX}-backend.loadbalancer.server.port=8080
+
+        # Middlewares
+        ## VHM rewrite /++api++/
+        - "traefik.http.middlewares.mw-${STACK_PREFIX}-backend-vhm-api.replacepathregex.regex=^/\\+\\+api\\+\\+($$|/.*)"
+        - "traefik.http.middlewares.mw-${STACK_PREFIX}-backend-vhm-api.replacepathregex.replacement=/VirtualHostBase/https/${DEPLOY_HOSTNAME}/${SITE_ID}/++api++/VirtualHostRoot$$1"
+
+        ## VHM rewrite /ClassicUI/
+        - "traefik.http.middlewares.mw-${STACK_PREFIX}-backend-vhm-classic.replacepathregex.regex=^/ClassicUI($$|/.*)"
+        - "traefik.http.middlewares.mw-${STACK_PREFIX}-backend-vhm-classic.replacepathregex.replacement=/VirtualHostBase/https/${DEPLOY_HOSTNAME}/${SITE_ID}/VirtualHostRoot/_vh_ClassicUI$$1"
+
+        # Routes
+        ## Internal /++api++ : only Varnish's cache misses (see frontend).
+        - traefik.http.routers.rt-${STACK_PREFIX}-backend-api.rule=Host(`${DEPLOY_HOSTNAME}`) && PathPrefix(`/++api++`) && Headers(`X-Varnish-Routed`, `1`)
+        - traefik.http.routers.rt-${STACK_PREFIX}-backend-api.entrypoints=http
+        - traefik.http.routers.rt-${STACK_PREFIX}-backend-api.service=svc-${STACK_PREFIX}-backend
+        - traefik.http.routers.rt-${STACK_PREFIX}-backend-api.middlewares=mw-${STACK_PREFIX}-backend-vhm-api
+        ## Public /ClassicUI : direct, behind basic auth, not cached.
+        - traefik.http.routers.rt-${STACK_PREFIX}-backend-classic.rule=Host(`${DEPLOY_HOSTNAME}`) && PathPrefix(`/ClassicUI`)
+        - traefik.http.routers.rt-${STACK_PREFIX}-backend-classic.entrypoints=https
+        - traefik.http.routers.rt-${STACK_PREFIX}-backend-classic.tls=true
+        - traefik.http.routers.rt-${STACK_PREFIX}-backend-classic.tls.certresolver=${CERTRESOLVER:-le-cloudflare}
+        - traefik.http.routers.rt-${STACK_PREFIX}-backend-classic.service=svc-${STACK_PREFIX}-backend
+        - traefik.http.routers.rt-${STACK_PREFIX}-backend-classic.middlewares=gzip,mw-${STACK_PREFIX}-auth,mw-${STACK_PREFIX}-backend-vhm-classic
+
+  db:
+    image: ${IMAGE_DB:-plone/plone-zeo}:${IMAGE_DB_TAG:-6.0.0}
+    deploy:
+      replicas: 1
+      update_config:
+        parallelism: 1
+        delay: 1s
+        order: stop-first
+      placement:
+        constraints:
+          - node.labels.type == ${STACK_DB_TYPE:-data}
+          - node.labels.env == ${STACK_ENV}
+    volumes:
+      - vol-site-data:/data
+    networks:
+      - nw-internal
+
+volumes:
+  vol-site-blob:
+    driver: local
+    driver_opts:
+      type: nfs
+      o: "addr=${NFS_HOST},rw,sync,hard,nfsvers=4"
+      device: ":${NFS_BASE_DIR}/data/blobstorage"
+  vol-site-data:
+    driver: local
+    driver_opts:
+      type: nfs
+      o: "addr=${NFS_HOST},rw,sync,hard,nfsvers=4"
+      device: ":${NFS_BASE_DIR}/data"
+
+networks:
+  public:
+    external: true
+  nw-internal:
+    driver: overlay
+    driver_opts:
+      com.docker.network.driver.mtu: ${NETWORK_MTU:-1450}
+
+configs:
+  backend_env:
+    external: true
+    name: ${STACK_PREFIX}_backend_env_${BACKEND_ENV_VERSION:-v0}
+  frontend_env:
+    external: true
+    name: ${STACK_PREFIX}_frontend_env_${FRONTEND_ENV_VERSION:-v0}

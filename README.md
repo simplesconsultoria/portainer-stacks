@@ -42,6 +42,7 @@ templates.json       Portainer App Templates v3 index, served raw to Portainer
 | ID                 | Description                                                                |
 |--------------------|----------------------------------------------------------------------------|
 | `plone-zeo-nfs`    | Plone 6 (ZEO storage, backend, Volto) — persistent, NFS-backed             |
+| `plone-zeo-nfs-varnish` | `plone-zeo-nfs` behind a Varnish cache, with a purger that reaches every Varnish replica |
 | `plone-demo`       | Plone 6 (backend + Volto) — stateless sandbox, data lost on restart        |
 | `plone-relstorage` | Plone 6 (backend + Volto) — RelStorage against an externally-managed Postgres |
 | `classic-zeo-nfs`  | Plone Classic 3.1 – 4.3 (legacy ZEO server + backend, no frontend) — persistent, NFS-backed |

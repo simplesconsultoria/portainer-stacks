@@ -820,6 +820,274 @@
           "default": "1450"
         }
       ]
+    },
+    {
+      "type": 2,
+      "title": "Plone (ZEO + NFS + Varnish)",
+      "description": "Plone 6 site with ZEO storage, scalable backend, and Volto frontend behind a Varnish cache, with a purger that fans PURGE requests out to every Varnish task. Persistent data on NFS. Per-instance directories must be pre-created by the matching cluster_playbook playbook.",
+      "note": "Single ZEO replica (cannot scale). Backend, frontend and Varnish can scale. The Varnish image must carry a VCL whose backend is traefik:80 and which sets X-Varnish-Routed: 1. Requires ${NFS_BASE_DIR}/data and data/blobstorage created beforehand by cluster_playbook.",
+      "categories": ["cms", "plone"],
+      "platform": "linux",
+      "logo": "https://raw.githubusercontent.com/simplesconsultoria/portainer-stacks/main/plone-zeo-nfs-varnish/logo.png",
+      "repository": {
+        "url": "https://github.com/simplesconsultoria/portainer-stacks",
+        "stackfile": "plone-zeo-nfs-varnish/docker-compose.yml"
+      },
+      "env": [
+        {
+          "name": "STACK_NAME",
+          "label": "Stack name (must match the field above)",
+          "description": "Type the same value you used in the stack 'Name' field at the top of this page. Used for internal Swarm DNS (${STACK_NAME}_db, ${STACK_NAME}_backend, ${STACK_NAME}_varnish, ${STACK_NAME}_purger)."
+        },
+        {
+          "name": "STACK_PREFIX",
+          "label": "Traefik resource prefix",
+          "description": "Short, unique prefix used in Traefik service/middleware/router names (e.g. 'acme-prod')."
+        },
+        {
+          "name": "STACK_ENV",
+          "label": "Target environment",
+          "description": "Swarm placement constraint: nodes must have node.labels.env == this value.",
+          "select": [
+            {"text": "staging", "value": "staging"},
+            {"text": "production", "value": "production"}
+          ]
+        },
+        {
+          "name": "SITE_ID",
+          "label": "Plone site id",
+          "description": "Plone site path segment (e.g. 'Plone'). Used by Volto's API path and the backend VHM rewrites.",
+          "default": "Plone"
+        },
+        {
+          "name": "DEPLOY_HOSTNAME",
+          "label": "Public hostname",
+          "description": "Hostname routed by Traefik (e.g. site.example.com). Must already resolve to the cluster."
+        },
+        {
+          "name": "IMAGE_FRONTEND",
+          "label": "Frontend image",
+          "description": "Volto image (e.g. plone/plone-frontend or a per-tenant build)."
+        },
+        {
+          "name": "IMAGE_FRONTEND_TAG",
+          "label": "Frontend image tag",
+          "description": "Pinned tag. Avoid 'latest' in production.",
+          "default": "latest"
+        },
+        {
+          "name": "IMAGE_BACKEND",
+          "label": "Backend image",
+          "description": "Plone backend image (e.g. plone/plone-backend)."
+        },
+        {
+          "name": "IMAGE_BACKEND_TAG",
+          "label": "Backend image tag",
+          "description": "Pinned tag. Avoid 'latest' in production.",
+          "default": "latest"
+        },
+        {
+          "name": "IMAGE_DB",
+          "label": "ZEO image",
+          "description": "ZEO server image. Override only for a custom-built ZEO.",
+          "default": "plone/plone-zeo"
+        },
+        {
+          "name": "IMAGE_DB_TAG",
+          "label": "ZEO image tag",
+          "description": "Bump together with backend ZODB compatibility.",
+          "default": "6.0.0"
+        },
+        {
+          "name": "STACK_FRONTEND_REPLICAS",
+          "label": "Frontend replicas",
+          "description": "Number of Volto replicas.",
+          "default": "1"
+        },
+        {
+          "name": "STACK_FRONTEND_TYPE",
+          "label": "Frontend node type",
+          "description": "Swarm placement constraint: node.labels.type for the frontend.",
+          "select": [
+            {"text": "App", "value": "app"},
+            {"text": "Data", "value": "data"}
+          ],
+          "default": "app"
+        },
+        {
+          "name": "STACK_BACKEND_REPLICAS",
+          "label": "Backend replicas",
+          "description": "Number of Plone backend replicas.",
+          "default": "1"
+        },
+        {
+          "name": "STACK_BACKEND_TYPE",
+          "label": "Backend node type",
+          "description": "Swarm placement constraint: node.labels.type for the backend.",
+          "select": [
+            {"text": "App", "value": "app"},
+            {"text": "Data", "value": "data"}
+          ],
+          "default": "app"
+        },
+        {
+          "name": "STACK_DB_TYPE",
+          "label": "ZEO node type",
+          "description": "Swarm placement constraint: node.labels.type for ZEO. Pin to a node with reliable NFS access.",
+          "select": [
+            {"text": "App", "value": "app"},
+            {"text": "Data", "value": "data"}
+          ],
+          "default": "data"
+        },
+        {
+          "name": "IMAGE_VARNISH",
+          "label": "Varnish image",
+          "description": "Varnish image carrying the site's VCL (backend traefik:80, sets X-Varnish-Routed: 1)."
+        },
+        {
+          "name": "IMAGE_VARNISH_TAG",
+          "label": "Varnish image tag",
+          "description": "Pinned tag. Avoid 'latest' in production.",
+          "default": "latest"
+        },
+        {
+          "name": "VARNISH_COMMAND",
+          "label": "Varnish parameters",
+          "description": "Extra varnishd arguments. The official image's entrypoint prepends 'varnishd -F ...' when they start with '-'.",
+          "default": "-p nuke_limit=2000 -p workspace_client=192k -p workspace_backend=192k"
+        },
+        {
+          "name": "VARNISH_SIZE",
+          "label": "Varnish cache size",
+          "description": "Size of the malloc cache, per Varnish replica (e.g. 100M, 1G).",
+          "default": "100M"
+        },
+        {
+          "name": "IMAGE_PURGER",
+          "label": "Purger image",
+          "description": "Image of the service that fans PURGE requests out to every Varnish task.",
+          "default": "ghcr.io/kitconcept/cluster-purger"
+        },
+        {
+          "name": "IMAGE_PURGER_TAG",
+          "label": "Purger image tag",
+          "description": "Pinned tag. Avoid 'latest' in production.",
+          "default": "latest"
+        },
+        {
+          "name": "STACK_VARNISH_REPLICAS",
+          "label": "Varnish replicas",
+          "description": "Number of Varnish replicas. Each keeps its own cache; the purger purges all of them.",
+          "default": "1"
+        },
+        {
+          "name": "STACK_VARNISH_TYPE",
+          "label": "Varnish node type",
+          "description": "Swarm placement constraint: node.labels.type for Varnish and the purger.",
+          "select": [
+            {"text": "App", "value": "app"},
+            {"text": "Data", "value": "data"}
+          ],
+          "default": "app"
+        },
+        {
+          "name": "ZEO_PORT",
+          "label": "ZEO port",
+          "description": "Port the ZEO server listens on.",
+          "default": "8100"
+        },
+        {
+          "name": "ZEO_STORAGE",
+          "label": "ZEO storage name",
+          "description": "ZEO storage identifier. Rarely changed.",
+          "default": "1"
+        },
+        {
+          "name": "NFS_HOST",
+          "label": "NFS server",
+          "description": "NFS server address (IP or DNS name)."
+        },
+        {
+          "name": "NFS_BASE_DIR",
+          "label": "NFS base directory",
+          "description": "Path on the NFS export for this site. Mounted at /data and /data/blobstorage. Must be pre-created by cluster_playbook."
+        },
+        {
+          "name": "CERTRESOLVER",
+          "label": "Traefik cert resolver",
+          "description": "Name of the Traefik certificate resolver to use.",
+          "select": [
+            {"text": "Let's Encrypt TLS", "value": "le-tls"},
+            {"text": "Cloudflare", "value": "le-cloudflare"}
+          ],
+          "default": "le-cloudflare"
+        },
+        {
+          "name": "FRONTEND_MIDDLEWARES",
+          "label": "Frontend middlewares",
+          "description": "Comma-separated Traefik middlewares for the public / route (served by Varnish). Add 'mw-<STACK_PREFIX>-auth' to gate the public site behind basic auth.",
+          "default": "gzip"
+        },
+        {
+          "name": "API_RATELIMIT_AVERAGE",
+          "label": "API rate limit (average)",
+          "description": "Average requests per second allowed per client IP (x-real-ip) on the public /++api++ route.",
+          "default": "20"
+        },
+        {
+          "name": "API_RATELIMIT_BURST",
+          "label": "API rate limit (burst)",
+          "description": "Burst size allowed per client IP on the public /++api++ route.",
+          "default": "50"
+        },
+        {
+          "name": "BASIC_AUTH_USER",
+          "label": "Basic auth user",
+          "description": "Username for the stack-wide auth middleware (always applied to /ClassicUI; opt-in for the frontend via FRONTEND_MIDDLEWARES)."
+        },
+        {
+          "name": "BASIC_AUTH_PASSWORD_HASH",
+          "label": "Basic auth password hash",
+          "description": "htpasswd-style hash. Never the plaintext password."
+        },
+        {
+          "name": "NETWORK_MTU",
+          "label": "Internal network MTU",
+          "description": "MTU for the internal overlay network. Lower it if running across VXLAN-encapsulated networks.",
+          "default": "1450"
+        },
+        {
+          "name": "FRONTEND_ENTRYPOINT",
+          "label": "Frontend launcher binary",
+          "description": "Launcher the frontend wrapper exec's, as 'exec <FRONTEND_ENTRYPOINT> <FRONTEND_COMMAND>', after sourcing /run/configs/frontend.env. The Volto image ships no entrypoint script, so it defaults to 'pnpm'. Override for a non-pnpm launcher (e.g. 'node') or to call a custom entrypoint script.",
+          "default": "pnpm"
+        },
+        {
+          "name": "FRONTEND_COMMAND",
+          "label": "Frontend launch command",
+          "description": "Args passed to the launcher, as 'exec <FRONTEND_ENTRYPOINT> <FRONTEND_COMMAND>'. With the default 'pnpm' launcher this is a pnpm script; 'start:prod' serves the production SSR build. Override for images whose script differs.",
+          "default": "start:prod"
+        },
+        {
+          "name": "BACKEND_COMMAND",
+          "label": "Backend launch command",
+          "description": "Command passed to the backend image's /app/docker-entrypoint.sh after the env-config wrapper sources /run/configs/backend.env. Default 'start' fires the upstream Plone backend launch path. Override only for images whose CMD differs from upstream.",
+          "default": "start"
+        },
+        {
+          "name": "BACKEND_ENV_VERSION",
+          "label": "Backend env config version",
+          "description": "Version suffix of the Swarm config providing extra env vars to the backend (mounted at /run/configs/backend.env and sourced before launch). The compose mounts ${STACK_PREFIX}_backend_env_${BACKEND_ENV_VERSION} — the config object must already exist in the cluster. Bump to roll new values.",
+          "default": "v0"
+        },
+        {
+          "name": "FRONTEND_ENV_VERSION",
+          "label": "Frontend env config version",
+          "description": "Version suffix of the Swarm config providing extra env vars to the frontend (mounted at /run/configs/frontend.env and sourced before launch). The compose mounts ${STACK_PREFIX}_frontend_env_${FRONTEND_ENV_VERSION} — the config object must already exist in the cluster. Bump to roll new values.",
+          "default": "v0"
+        }
+      ]
     }
   ]
 }
